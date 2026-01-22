@@ -1,6 +1,8 @@
 <?php
 
-require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/auth.php';
+
+
 
 class Page
 {
@@ -84,10 +86,20 @@ class Page
         <div class="nav-actions">
           <?php if ($user): ?>
             <span class="nav-user">Ahoj, <?= htmlspecialchars($user['name'], ENT_QUOTES, 'UTF-8') ?></span>
-            <a class="ghost-button" href="<?= $user['role'] === 'admin' ? 'admin.php' : 'user.php' ?>">
-              Profil
-            </a>
-            <a class="primary-button" href="logout.php">Odhlásiť</a>
+            <details class="profile-menu">
+              <summary class="ghost-button">Profil</summary>
+              <div class="profile-dropdown" role="menu">
+                <a class="profile-dropdown-item" role="menuitem" href="kosik.php">Objednávky</a>
+                <a
+                  class="profile-dropdown-item"
+                  role="menuitem"
+                  href="<?= $user['role'] === 'admin' ? 'admin.php' : 'user.php' ?>"
+                >
+                  Účet zákazníka
+                </a>
+                <a class="profile-dropdown-item" role="menuitem" href="logout.php">Odhlásiť</a>
+              </div>
+            </details>
           <?php else: ?>
             <a class="ghost-button" href="login.php">Prihlásiť</a>
             <a class="primary-button" href="register.php">Registrácia</a>

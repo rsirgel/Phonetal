@@ -82,9 +82,9 @@ class Database
             $conditions[] = $this->buildInClause('velkost_displeja', $filters['uhlopriecky'], $params);
         }
 
-        $sql = "SELECT znacka, model, ram, velkost_displeja, cena_za_den
-                FROM MA_zariadenia
-                WHERE " . implode(' AND ', $conditions) . "
+        $sql = "SELECT id, znacka, model, ram, velkost_displeja, cena_za_den
+                FROM MA_zariadenia␊
+                WHERE " . implode(' AND ', $conditions) . "␊
                 ORDER BY znacka, model";
 
         $rows = $this->fetchAll($sql, $params);
@@ -96,6 +96,7 @@ class Database
             if (!empty($row['velkost_displeja'])) $details[] = $row['velkost_displeja'];
 
             $devices[] = [
+                'id' => (int) $row['id'],
                 'label' => $row['znacka'] . ' ' . $row['model'],
                 'name' => $row['znacka'] . ' ' . $row['model'],
                 'details' => $details ? implode(' • ', $details) : 'Parametre budú doplnené.',
@@ -104,6 +105,36 @@ class Database
         }
 
         return $devices;
+    }
+
+    public function fetchDeviceById(int $deviceId): ?array
+    {
+        $sql = "SELECT id, znacka, model, ram, velkost_displeja, typ_zariadenia, cena_za_den
+                FROM MA_zariadenia
+                WHERE id = ?
+                LIMIT 1";
+        $rows = $this->fetchAll($sql, [$deviceId]);
+
+        if ($rows === []) {
+            return null;
+        }
+
+        $row = $rows[0];
+        $details = [];
+        if (!empty($row['ram'])) $details[] = $row['ram'] . ' GB RAM';
+        if (!empty($row['velkost_displeja'])) $details[] = $row['velkost_displeja'];
+
+        return [
+            'id' => (int) $row['id'],
+            'brand' => $row['znacka'],
+            'model' => $row['model'],
+            'type' => $row['typ_zariadenia'] ?: 'zariadenie',
+            'ram' => $row['ram'],
+            'display' => $row['velkost_displeja'],
+            'name' => $row['znacka'] . ' ' . $row['model'],
+            'details' => $details ? implode(' • ', $details) : 'Parametre budú doplnené.',
+            'price' => 'od ' . number_format((float) $row['cena_za_den'], 2, ',', ' ') . ' €/deň',
+        ];
     }
 
     public function fetchRentEndNotifications(array $daysIntervals): array
