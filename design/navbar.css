@@ -1,0 +1,27 @@
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+  font-weight: 500;
+  color: var(--gray);
+}
+
+.nav-links a {
+  position: relative;
+}
+
+.nav-links a.nav-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -0.4rem;
+  width: 100%;
+  height: 2px;
+  background: var(--green);
+  border-radius: 999px;
+}
+
+@media (max-width: 900px) {
+  .nav-links {
+    display: none;
+  }
+}

@@ -1,0 +1,58 @@
+.device-section {
+  padding-top: 1rem;
+}
+
+.device-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.filter-panel {
+  border: 1px solid #ededed;
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.04);
+  display: grid;
+  gap: 1rem;
+  position: sticky;
+  top: 6rem;
+}
+
+.filter-panel p {
+  color: var(--gray);
+  font-size: 0.95rem;
+}
+
+.filter-group {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.device-list {
+  display: grid;
+  gap: 2.5rem;
+}
+
+.device-group {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .device-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-panel {
+    position: static;
+  }
+}
