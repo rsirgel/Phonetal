@@ -80,12 +80,13 @@ function buildHtmlBody(array $notification): string
 {
     $koniec = (new DateTimeImmutable($notification['koniec']))->format('d.m.Y');
     $days = (int) $notification['dni'];
+    $daysLabel = $days === 1 ? 'den' : 'dni';
 
     return <<<HTML
     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a37;">
         <h2 style="margin: 0 0 12px;">Prenajom sa blizi ku koncu</h2>
         <p>Ahoj {$notification['meno']},</p>
-        <p>vas prenajom (#{$notification['prenajom_id']}) konci o {$days} {$days === 1 ? 'den' : 'dni'}.</p>
+        <p>vas prenajom (#{$notification['prenajom_id']}) konci o {$days} {$daysLabel}.</p>
         <p>Datum ukoncenia: <strong>{$koniec}</strong>.</p>
         <p>Ak potrebujete predlzit prenajom alebo mate otazky, ozvite sa nam na info@phonetal.sk.</p>
         <p style="margin-top: 24px;">Dakujeme,<br>Tim Phonetal</p>
@@ -97,10 +98,11 @@ function buildTextBody(array $notification): string
 {
     $koniec = (new DateTimeImmutable($notification['koniec']))->format('d.m.Y');
     $days = (int) $notification['dni'];
+    $daysLabel = $days === 1 ? 'den' : 'dni';
 
     return "Prenajom sa blizi ku koncu\n\n" .
         "Ahoj {$notification['meno']},\n" .
-        "vas prenajom (#{$notification['prenajom_id']}) konci o {$days} " . ($days === 1 ? 'den' : 'dni') . ".\n" .
+        "vas prenajom (#{$notification['prenajom_id']}) konci o {$days} {$daysLabel}.\n" .
         "Datum ukoncenia: {$koniec}.\n\n" .
         "Ak potrebujete predlzit prenajom alebo mate otazky, ozvite sa nam na info@phonetal.sk.\n\n" .
         "Dakujeme,\nTim Phonetal\n";

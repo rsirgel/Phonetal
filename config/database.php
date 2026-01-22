@@ -2,28 +2,34 @@
 
 class Database
 {
-    private \PDO $pdo;
+    private string $host = "mysql80.r2.websupport.sk";
+    private string $user = "sirgel";
+    private string $password = "Rh3.0x(n}@";
+    private string $dbname = "sirgel";
+
+    private \mysqli $conn;
 
     public function __construct()
     {
-        $dsn = getenv('PHONETAL_DSN') ?: 'mysql:host=localhost;dbname=phonetal;charset=utf8mb4';
-        $user = getenv('PHONETAL_DB_USER') ?: 'root';
-        $password = getenv('PHONETAL_DB_PASS') ?: '';
-        $options = [
-            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-        ];
+        $this->conn = new \mysqli(
+            $this->host,
+            $this->user,
+            $this->password,
+            $this->dbname
+        );
 
-        $this->pdo = new \PDO($dsn, $user, $password, $options);
+        if ($this->conn->connect_error) {
+            die("Chyba pripojenia: " . $this->conn->connect_error);
+        }
+
+        $this->conn->set_charset("utf8mb4");
     }
 
     public function fetchAvailableDevices(): array
     {
-        $statement = $this->pdo->query(
+        $rows = $this->fetchAll(
             "SELECT id, znacka, model FROM MA_zariadenia WHERE stav = 'dostupne' ORDER BY znacka, model"
         );
-
-        $rows = $statement->fetchAll();
         $devices = [];
 
         foreach ($rows as $row) {
@@ -38,16 +44,14 @@ class Database
 
     public function fetchSearchSuggestions(string $query): array
     {
-        $statement = $this->pdo->prepare(
+        $sql =
             "SELECT DISTINCT CONCAT(znacka, ' ', model) AS label
              FROM MA_zariadenia
-             WHERE znacka LIKE :q OR model LIKE :q
+             WHERE znacka LIKE ? OR model LIKE ?
              ORDER BY znacka, model
-             LIMIT 8"
-        );
-
-        $statement->execute(['q' => '%' . $query . '%']);
-        return $statement->fetchAll(\PDO::FETCH_COLUMN);
+             LIMIT 8";
+        $rows = $this->fetchAll($sql, ['%' . $query . '%', '%' . $query . '%']);
+        return array_column($rows, 'label');
     }
 
     public function fetchFilterOptions(): array
@@ -66,16 +70,16 @@ class Database
         $params = [];
 
         if (!empty($filters['typy'])) {
-            $conditions[] = $this->buildInClause('typ_zariadenia', 'typy', $filters['typy'], $params);
+            $conditions[] = $this->buildInClause('typ_zariadenia', $filters['typy'], $params);
         }
         if (!empty($filters['znacky'])) {
-            $conditions[] = $this->buildInClause('znacka', 'znacky', $filters['znacky'], $params);
+            $conditions[] = $this->buildInClause('znacka', $filters['znacky'], $params);
         }
         if (!empty($filters['ram'])) {
-            $conditions[] = $this->buildInClause('ram', 'ram', $filters['ram'], $params);
+            $conditions[] = $this->buildInClause('ram', $filters['ram'], $params);
         }
         if (!empty($filters['uhlopriecky'])) {
-            $conditions[] = $this->buildInClause('velkost_displeja', 'uhlopriecky', $filters['uhlopriecky'], $params);
+            $conditions[] = $this->buildInClause('velkost_displeja', $filters['uhlopriecky'], $params);
         }
 
         $sql = "SELECT znacka, model, ram, velkost_displeja, cena_za_den
@@ -83,9 +87,7 @@ class Database
                 WHERE " . implode(' AND ', $conditions) . "
                 ORDER BY znacka, model";
 
-        $statement = $this->pdo->prepare($sql);
-        $statement->execute($params);
-        $rows = $statement->fetchAll();
+        $rows = $this->fetchAll($sql, $params);
 
         $devices = [];
         foreach ($rows as $row) {
@@ -104,22 +106,85 @@ class Database
         return $devices;
     }
 
-    private function fetchDistinctOptions(string $column): array
+    public function fetchRentEndNotifications(array $daysIntervals): array
     {
-        $statement = $this->pdo->query(
-            "SELECT DISTINCT {$column} FROM MA_zariadenia WHERE {$column} IS NOT NULL ORDER BY {$column}"
-        );
-        return array_values(array_filter($statement->fetchAll(\PDO::FETCH_COLUMN)));
+        if ($daysIntervals === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($daysIntervals), '?'));
+        $sql = "SELECT p.id AS prenajom_id,
+                       p.koniec,
+                       u.email,
+                       CONCAT(u.meno, ' ', u.priezvisko) AS meno,
+                       DATEDIFF(p.koniec, CURDATE()) AS dni
+                FROM MA_prenajmy p
+                JOIN MA_pouzivatelia u ON u.id = p.pouzivatel_id
+                WHERE p.stav = 'aktivny'
+                  AND DATEDIFF(p.koniec, CURDATE()) IN ({$placeholders})";
+
+        return $this->fetchAll($sql, array_values($daysIntervals));
     }
 
-    private function buildInClause(string $column, string $prefix, array $values, array &$params): string
+    private function fetchDistinctOptions(string $column): array
     {
-        $placeholders = [];
-        foreach (array_values($values) as $index => $value) {
-            $name = $prefix . $index;      // bez :
-            $placeholders[] = ':' . $name; // v SQL s :
-            $params[$name] = $value;       // v execute bez :
+        $rows = $this->fetchAll(
+            "SELECT DISTINCT {$column} FROM MA_zariadenia WHERE {$column} IS NOT NULL ORDER BY {$column}"
+        );
+        return array_values(array_filter(array_column($rows, $column)));
+    }
+
+    private function buildInClause(string $column, array $values, array &$params): string
+    {
+        $placeholders = array_fill(0, count($values), '?');
+        foreach (array_values($values) as $value) {
+            $params[] = $value;
         }
         return sprintf('%s IN (%s)', $column, implode(', ', $placeholders));
+    }
+
+    private function fetchAll(string $sql, array $params = []): array
+    {
+        if ($params === []) {
+            $result = $this->conn->query($sql);
+            if ($result === false) {
+                throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+            }
+            return $result->fetch_all(MYSQLI_ASSOC);
+        }
+
+        $statement = $this->conn->prepare($sql);
+        if ($statement === false) {
+            throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+        }
+
+        $types = $this->buildParamTypes($params);
+        $bindParams = [$types];
+        foreach ($params as $index => $value) {
+            $bindParams[] = &$params[$index];
+        }
+        $statement->bind_param(...$bindParams);
+        $statement->execute();
+
+        $result = $statement->get_result();
+        $rows = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+        $statement->close();
+
+        return $rows;
+    }
+
+    private function buildParamTypes(array $params): string
+    {
+        $types = '';
+        foreach ($params as $param) {
+            if (is_int($param)) {
+                $types .= 'i';
+            } elseif (is_float($param)) {
+                $types .= 'd';
+            } else {
+                $types .= 's';
+            }
+        }
+        return $types;
     }
 }
