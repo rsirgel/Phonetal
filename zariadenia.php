@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/models/Page.php';
+require_once __DIR__ . '/models/page.php';
 require_once __DIR__ . '/models/device-filter.php';
 require_once __DIR__ . '/models/device-card.php';
 require_once __DIR__ . '/config/database.php';
@@ -26,6 +26,7 @@ $filterOptions = [
 
 $deviceCatalog = [
     [
+        'id' => 1,
         'label' => 'iPhone 15 Pro',
         'name' => 'iPhone 15 Pro',
         'details' => '8 GB RAM • 6.1"',
@@ -36,6 +37,7 @@ $deviceCatalog = [
         'uhlopriecka' => '6.1',
     ],
     [
+        'id' => 2,
         'label' => 'Samsung Galaxy S24',
         'name' => 'Samsung Galaxy S24',
         'details' => '8 GB RAM • 6.7"',
@@ -46,6 +48,7 @@ $deviceCatalog = [
         'uhlopriecka' => '6.7',
     ],
     [
+        'id' => 3,
         'label' => 'iPad Pro 12.9"',
         'name' => 'iPad Pro 12.9"',
         'details' => '16 GB RAM • 12.9"',
@@ -56,6 +59,7 @@ $deviceCatalog = [
         'uhlopriecka' => '12.9',
     ],
     [
+        'id' => 4,
         'label' => 'Galaxy Tab S9',
         'name' => 'Galaxy Tab S9',
         'details' => '12 GB RAM • 11"',
@@ -66,6 +70,7 @@ $deviceCatalog = [
         'uhlopriecka' => '11',
     ],
     [
+        'id' => 5,
         'label' => 'Apple AirPods Max',
         'name' => 'Apple AirPods Max',
         'details' => 'Prémiové ANC slúchadlá',
@@ -150,6 +155,24 @@ $page->render(function () use ($filterOptions, $selectedFilters, $deviceCatalog)
         document.querySelectorAll('[data-filter-input]').forEach((input) => {
           input.addEventListener('change', () => {
             input.closest('form')?.requestSubmit();
+          });
+        });
+
+        document.querySelectorAll('.product-card[data-detail-url]').forEach((card) => {
+          const detailUrl = card.dataset.detailUrl;
+          if (!detailUrl) return;
+          card.setAttribute('tabindex', '0');
+          card.addEventListener('click', (event) => {
+            if (event.target.closest('a, button')) {
+              return;
+            }
+            window.location.href = detailUrl;
+          });
+          card.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              window.location.href = detailUrl;
+            }
           });
         });
       </script>

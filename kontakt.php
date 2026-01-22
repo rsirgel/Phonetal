@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/models/Page.php';
+require_once __DIR__ . '/models/page.php';
 
 $page = new Page(
     'Phonetal | Kontakt',

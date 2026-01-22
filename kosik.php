@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/models/Page.php';
-require_once __DIR__ . '/models/Auth.php';
+require_once __DIR__ . '/models/page.php';
+require_once __DIR__ . '/models/auth.php';
 require_once __DIR__ . '/config/database.php';
 
 $page = new Page(

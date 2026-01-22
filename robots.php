@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/models/Page.php';
+require_once __DIR__ . '/models/page.php';
 
 $page = new Page(
     'Phonetal | Roadmap projektu',
@@ -72,6 +72,10 @@ $page->render(function (): void {
           </div>
           <div class="feature-card">
             <h3>3D prezeranie</h3>
+            <p>Interaktívne modely zariadení pre lepší výber.</p>
+          </div>
+          <div class="feature-card">
+            <h3>tba</h3>
             <p>Interaktívne modely zariadení pre lepší výber.</p>
           </div>
         </div>
