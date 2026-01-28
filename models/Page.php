@@ -32,11 +32,11 @@ class Page
         $links = [
             'index.php' => 'Domov',
             'zariadenia.php' => 'Zariadenia',
-            'sluzby.php' => 'Služby',
-            'kontakt.php' => 'Kontakt',
-            'robots.php' => 'Roadmap',
         ];
         $user = Auth::user();
+        if ($user && $user['role'] === 'admin') {
+            $links['robots.php'] = 'Roadmap';
+        }
         ?>
 <!DOCTYPE html>
 <html lang="sk">
@@ -85,7 +85,7 @@ class Page
         </div>
         <div class="nav-actions">
           <?php if ($user): ?>
-            <span class="nav-user">Ahoj, <?= htmlspecialchars($user['name'], ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="nav-user"> <?= htmlspecialchars($user['name'], ENT_QUOTES, 'UTF-8') ?></span>
             <details class="profile-menu">
               <summary class="ghost-button">Profil</summary>
               <div class="profile-dropdown" role="menu">
@@ -119,9 +119,11 @@ class Page
         <p>Prenájom telefónov, tabletov a príslušenstva pre firmy aj jednotlivcov.</p>
       </div>
       <div>
-        <h4>Kontakt</h4>
+        <h4>O nás</h4>
         <p>Email: info@phonetal.sk</p>
         <p>Tel: +421 902 123 456</p>
+        <p><a href="sluzby.php">Služby</a></p>
+        <p><a href="kontakt.php">Kontakt</a></p>
       </div>
       <div>
         <h4>Sledujte nás</h4>

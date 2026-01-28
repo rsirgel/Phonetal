@@ -1,8 +1,6 @@
 <?php
 require_once __DIR__ . '/models/page.php';
 
-
-
 $page = new Page(
     'Phonetal | Prenájom telefónov a zariadení',
     'Phonetal ponúka flexibilný prenájom moderných telefónov, tabletov a príslušenstva. Vyberte si zariadenie, nastavte dobu prenájmu a prenajmite rýchlo online.',

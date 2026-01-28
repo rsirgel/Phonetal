@@ -35,16 +35,6 @@ a {
   z-index: 10;
 }
 
-.navbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1rem 1.5rem;
-  gap: 1.5rem;
-}
-
 .logo {
   display: flex;
   align-items: center;
@@ -462,20 +452,6 @@ main {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   border: 0;
-}
-
-.nav-search {
-  position: relative;
-  flex: 1;
-  max-width: 320px;
-}
-
-.nav-search input {
-  width: 100%;
-  border-radius: 999px;
-  border: 1px solid #e0e0e0;
-  padding: 0.55rem 1rem;
-  font-size: 0.95rem;
 }
 
 .search-results {
