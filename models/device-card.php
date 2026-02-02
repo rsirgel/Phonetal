@@ -1,9 +1,9 @@
 <?php
 
-function renderDeviceCard(array $device): void
+function renderDeviceCard(array $device)
 {
     $deviceId = isset($device['id']) ? (int) $device['id'] : 0;
-    $detailUrl = $deviceId > 0 ? "zariadenie.php?id={$deviceId}" : 'zariadenie.php';
+    $detailUrl = $deviceId > 0 ? "zariadenia.php?id={$deviceId}" : 'zariadenia.php';
     $rentUrl = $deviceId > 0 ? "kosik.php?device_id={$deviceId}" : 'kosik.php';
     ?>
     <article class="product-card" data-detail-url="<?= htmlspecialchars($detailUrl, ENT_QUOTES, 'UTF-8') ?>">

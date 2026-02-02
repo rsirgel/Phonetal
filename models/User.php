@@ -1,6 +1,7 @@
 <?php
-require_once __DIR__ . '/models/page.php';
-require_once __DIR__ . '/models/auth.php';
+
+require_once __DIR__ . '/Page.php';
+require_once __DIR__ . '/Auth.php';
 
 Auth::init();
 $user = Auth::user();

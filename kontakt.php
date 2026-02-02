@@ -31,7 +31,7 @@ $page->render(function () use ($fullName, $email, $phone): void {
             <li>Email: info@phonetal.sk</li>
             <li>Telefón: +421 902 123 456</li>
             <li>Live chat: 08:00 – 20:00</li>
-            <li>Odpoveď do 2 hodín</li>
+            <li>Odpoveď do 3 hodín</li>
           </ul>
         </div>
       </section>

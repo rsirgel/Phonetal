@@ -1,6 +1,6 @@
 <?php
 
-function renderDeviceFilter(array $options, array $selected): void
+function renderDeviceFilter(array $options, array $selected)
 {
     ?>
     <aside class="filter-panel">

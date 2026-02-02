@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/Auth.php';
 
 
 
@@ -93,7 +93,7 @@ class Page
                 <a
                   class="profile-dropdown-item"
                   role="menuitem"
-                  href="<?= $user['role'] === 'admin' ? 'admin.php' : 'user.php' ?>"
+                  href="<?= $user['role'] === 'admin' ? 'admin.php' : 'models/User.php' ?>"
                 >
                   Účet zákazníka
                 </a>

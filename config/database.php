@@ -83,8 +83,8 @@ class Database
         }
 
         $sql = "SELECT id, znacka, model, ram, velkost_displeja, cena_za_den
-                FROM MA_zariadenia␊
-                WHERE " . implode(' AND ', $conditions) . "␊
+                FROM MA_zariadenia
+                WHERE " . implode(' AND ', $conditions) . "
                 ORDER BY znacka, model";
 
         $rows = $this->fetchAll($sql, $params);
@@ -133,6 +133,7 @@ class Database
             'display' => $row['velkost_displeja'],
             'name' => $row['znacka'] . ' ' . $row['model'],
             'details' => $details ? implode(' • ', $details) : 'Parametre budú doplnené.',
+            'price_per_day' => (float) $row['cena_za_den'],
             'price' => 'od ' . number_format((float) $row['cena_za_den'], 2, ',', ' ') . ' €/deň',
         ];
     }
@@ -256,7 +257,6 @@ class Database
 
         return $insertId;
     }
-
     private function fetchDistinctOptions(string $column): array
     {
         $rows = $this->fetchAll(
