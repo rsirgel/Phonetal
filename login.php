@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $message = 'Nesprávny email alebo heslo. Skúste user@phonetal.sk / user123.';
+    $message = 'Nesprávny email alebo heslo. Skúste to znova.';
 }
 
 $page = new Page(
@@ -32,10 +32,11 @@ $page->render(function () use ($message): void {
           <p>Prihlásením získate prístup ku košíku a platbám.</p>
         </div>
         <div class="page-hero-card">
-          <h2>Testovací účet</h2>
+          <h2>Bezpečné prihlásenie</h2>
           <ul>
-            <li>user@phonetal.sk</li>
-            <li>heslo: user123</li>
+            <li>Údaje sa overujú v databáze</li>
+            <li>Získate rýchlejší checkout</li>
+            <li>Prístup k administrácii pre adminov</li>
           </ul>
         </div>
       </section>

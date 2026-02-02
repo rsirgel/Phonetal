@@ -6,16 +6,23 @@ Auth::init();
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim((string) ($_POST['name'] ?? ''));
+    $firstName = trim((string) ($_POST['first_name'] ?? ''));
+    $lastName = trim((string) ($_POST['last_name'] ?? ''));
     $email = trim((string) ($_POST['email'] ?? ''));
+    $password = (string) ($_POST['password'] ?? '');
 
-    if ($name && $email) {
-        Auth::register($name, $email);
-        header('Location: kosik.php');
-        exit;
+    if ($firstName && $lastName && $email && $password) {
+        try {
+            Auth::register($firstName, $lastName, $email, $password);
+            header('Location: kosik.php');
+            exit;
+        } catch (Throwable $exception) {
+            $message = 'Registrácia sa nepodarila. Skúste iný email.';
+        }
+    } else {
+        $message = 'Zadajte meno, priezvisko, email a heslo.';
     }
 
-    $message = 'Zadajte meno a email.';
 }
 
 $page = new Page(
@@ -53,12 +60,20 @@ $page->render(function () use ($message): void {
         <form class="order-form" method="post">
           <div class="form-grid">
             <label>
-              Meno a priezvisko
-              <input type="text" name="name" placeholder="Ján Novák" required />
+              Meno
+              <input type="text" name="first_name" placeholder="Ján" required />
+            </label>
+            <label>
+              Priezvisko
+              <input type="text" name="last_name" placeholder="Novák" required />
             </label>
             <label>
               Email
               <input type="email" name="email" placeholder="vas@email.sk" required />
+            </label>
+            <label>
+              Heslo
+              <input type="password" name="password" placeholder="••••••" required />
             </label>
           </div>
           <button class="primary-button" type="submit">Vytvoriť účet</button>

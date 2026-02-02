@@ -157,6 +157,106 @@ class Database
         return $this->fetchAll($sql, array_values($daysIntervals));
     }
 
+    public function fetchUserByEmail(string $email): ?array
+    {
+        $rows = $this->fetchAll(
+            "SELECT id, meno, priezvisko, email, password_hash, telefon, rodne_cislo, mesto, ulica, rola
+             FROM MA_pouzivatelia
+             WHERE email = ?
+             LIMIT 1",
+            [$email]
+        );
+
+        return $rows[0] ?? null;
+    }
+
+    public function createDevice(array $payload): int
+    {
+        $sql = "INSERT INTO MA_zariadenia
+                (znacka, model, typ_zariadenia, velkost_displeja, ram, pamat, rok_vydania, softver, cena_za_den, zaloha, popis, stav)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $params = [
+            $payload['znacka'],
+            $payload['model'],
+            $payload['typ_zariadenia'],
+            $payload['velkost_displeja'],
+            $payload['ram'],
+            $payload['pamat'],
+            $payload['rok_vydania'],
+            $payload['softver'],
+            $payload['cena_za_den'],
+            $payload['zaloha'],
+            $payload['popis'],
+            $payload['stav'],
+        ];
+
+        $statement = $this->conn->prepare($sql);
+        if ($statement === false) {
+            throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+        }
+
+        $types = $this->buildParamTypes($params);
+        $bindParams = [$types];
+        foreach ($params as $index => $value) {
+            $bindParams[] = &$params[$index];
+        }
+        $statement->bind_param(...$bindParams);
+        $statement->execute();
+
+        if ($statement->errno) {
+            $error = $statement->error;
+            $statement->close();
+            throw new \RuntimeException('SQL chyba: ' . $error);
+        }
+
+        $insertId = $statement->insert_id;
+        $statement->close();
+
+        return $insertId;
+    }
+
+    public function createUser(array $payload): int
+    {
+        $sql = "INSERT INTO MA_pouzivatelia
+                (meno, priezvisko, email, password_hash, telefon, rodne_cislo, mesto, ulica, rola)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $params = [
+            $payload['meno'],
+            $payload['priezvisko'],
+            $payload['email'],
+            $payload['password_hash'],
+            $payload['telefon'],
+            $payload['rodne_cislo'],
+            $payload['mesto'],
+            $payload['ulica'],
+            $payload['rola'],
+        ];
+
+        $statement = $this->conn->prepare($sql);
+        if ($statement === false) {
+            throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+        }
+
+        $types = $this->buildParamTypes($params);
+        $bindParams = [$types];
+        foreach ($params as $index => $value) {
+            $bindParams[] = &$params[$index];
+        }
+        $statement->bind_param(...$bindParams);
+        $statement->execute();
+
+        if ($statement->errno) {
+            $error = $statement->error;
+            $statement->close();
+            throw new \RuntimeException('SQL chyba: ' . $error);
+        }
+
+        $insertId = $statement->insert_id;
+        $statement->close();
+
+        return $insertId;
+    }
+
     private function fetchDistinctOptions(string $column): array
     {
         $rows = $this->fetchAll(
