@@ -82,6 +82,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
     }
 
     if ($orderErrors === []) {
+        if (!$user || empty($user['id'])) {
+            $orderErrors[] = 'Prihlásený používateľ nie je dostupný.';
+        }
+    }
+
+    if ($orderErrors === []) {
         $fullName = trim((string) filter_input(INPUT_POST, 'full_name', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
         $phone = trim((string) filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
         $street = trim((string) filter_input(INPUT_POST, 'street', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
@@ -129,6 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
             $orderComplete = true;
             $orderMessage = 'Prenájom bol úspešne uložený. Číslo objednávky: #' . $rentalId . '.';
         } catch (Throwable $exception) {
+            error_log('Prenajom sa nepodarilo ulozit: ' . $exception->getMessage());
             $orderErrors[] = 'Prenájom sa nepodarilo uložiť. Skúste to prosím neskôr.';
         }
     }

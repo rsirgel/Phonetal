@@ -361,11 +361,14 @@ class Database
 
     private function updateDeviceAvailability(array $deviceIds, string $status): void
     {
+        $deviceIds = array_values(array_unique(array_map('intval', $deviceIds)));
         $deviceIds = array_values(array_unique(array_filter($deviceIds, 'is_numeric')));
         if ($deviceIds === []) {
             return;
         }
 
+        $placeholders = implode(', ', array_fill(0, count($deviceIds), '?'));
+        $sql = "UPDATE MA_zariadenia SET stav = ? WHERE id IN ({$placeholders})";
         $params = [];
         $clause = $this->buildInClause('id', $deviceIds, $params);
 
@@ -375,6 +378,8 @@ class Database
             throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
         }
 
+        $params = array_merge([$status], $deviceIds);
+        $types = 's' . str_repeat('i', count($deviceIds));
         $params = array_merge([$status], $params);
         $types = $this->buildParamTypes($params);
         $bindParams = [$types];
