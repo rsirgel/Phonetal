@@ -24,73 +24,61 @@ $page->render(function () use ($user): void {
     ?>
       <section class="page-hero">
         <div>
-          <p class="eyebrow">Profil</p>
-          <h1>Váš účet</h1>
+          <p class="eyebrow"></p>
+          <h1>Fakturačné údaje</h1>
           <p>Spravujte svoje prenájmy a osobné údaje.</p>
-        </div>
-        <div class="page-hero-card">
-          <h2>Stav účtu</h2>
-          <ul>
-            <li>Prihlásený: áno</li>
-            <li>Meno: <?= $escapeValue($user['name'] ?? null) ?></li>
-            <li>Email: <?= $escapeValue($user['email'] ?? null) ?></li>
-            <li>Rola: <?= $escapeValue($user['role'] ?? null) ?></li>
-          </ul>
         </div>
       </section>
 
       <section class="section">
         <div class="section-heading">
           <h2>Základné údaje</h2>
-          <p>Upravte svoje kontaktné údaje pre prenájmy. Zmeny sa ukladajú automaticky.</p>
-          <p id="profile-save-status" aria-live="polite"></p>
         </div>
         <div class="feature-grid">
-          <div class="feature-card">
+          <div class="feature-card profile-card">
             <h3>Osobné údaje</h3>
-            <label>
-              Meno
-              <input type="text" data-profile-field="first_name" value="<?= $escapeValue($user['first_name'] ?? null) ?>" />
-            </label>
-            <label>
-              Priezvisko
-              <input type="text" data-profile-field="last_name" value="<?= $escapeValue($user['last_name'] ?? null) ?>" />
-            </label>
-            <label>
-              Ulica
-              <input type="text" data-profile-field="street" value="<?= $escapeValue($user['street'] ?? null) ?>" />
-            </label>
-            <label>
-              PSČ
-              <input type="text" data-profile-field="postal_code" value="<?= $escapeValue($user['postal_code'] ?? null) ?>" />
-            </label>
-            <label>
-              Mesto
-              <input type="text" data-profile-field="city" value="<?= $escapeValue($user['city'] ?? null) ?>" />
-            </label>
-            <label>
-              Tel. číslo
-              <input type="tel" data-profile-field="phone" value="<?= $escapeValue($user['phone'] ?? null) ?>" />
-            </label>
-            <label>
-              Kontaktný email
-              <input type="email" data-profile-field="email" value="<?= $escapeValue($user['email'] ?? null) ?>" />
-            </label>
-          </div>
-          <div class="feature-card">
-            <h3>Údaje pre firmy (voliteľné)</h3>
-            <label>
-              IBAN
-              <input type="text" data-profile-field="iban" value="<?= $escapeValue($user['iban'] ?? null) ?>" />
-            </label>
-            <label>
-              BIC
-              <input type="text" data-profile-field="bic" value="<?= $escapeValue($user['bic'] ?? null) ?>" />
-            </label>
-            <label>
-              Meno majiteľa účtu
-              <input type="text" data-profile-field="account_owner" value="<?= $escapeValue($user['account_owner'] ?? null) ?>" />
-            </label>
+            <div class="profile-form profile-grid">
+              <label>
+                Meno
+                <input type="text" data-profile-field="first_name" value="<?= $escapeValue($user['first_name'] ?? null) ?>" />
+              </label>
+              <label>
+                Priezvisko
+                <input type="text" data-profile-field="last_name" value="<?= $escapeValue($user['last_name'] ?? null) ?>" />
+              </label>
+              <label>
+                Ulica
+                <input type="text" data-profile-field="street" value="<?= $escapeValue($user['street'] ?? null) ?>" />
+              </label>
+              <label>
+                PSČ
+                <input type="text" data-profile-field="postal_code" value="<?= $escapeValue($user['postal_code'] ?? null) ?>" />
+              </label>
+              <label>
+                Mesto
+                <input type="text" data-profile-field="city" value="<?= $escapeValue($user['city'] ?? null) ?>" />
+              </label>
+              <label>
+                Tel. číslo
+                <input type="tel" data-profile-field="phone" value="<?= $escapeValue($user['phone'] ?? null) ?>" />
+              </label>
+              <label>
+                Kontaktný email
+                <input type="email" data-profile-field="email" value="<?= $escapeValue($user['email'] ?? null) ?>" />
+              </label>
+              <label>
+                IBAN
+                <input type="text" data-profile-field="iban" value="<?= $escapeValue($user['iban'] ?? null) ?>" />
+              </label>
+              <label>
+                BIC
+                <input type="text" data-profile-field="bic" value="<?= $escapeValue($user['bic'] ?? null) ?>" />
+              </label>
+              <label>
+                Meno majiteľa účtu
+                <input type="text" data-profile-field="account_owner" value="<?= $escapeValue($user['account_owner'] ?? null) ?>" />
+              </label>
+            </div>
           </div>
         </div>
       </section>
