@@ -14,17 +14,22 @@ $isLoggedIn = Auth::isLoggedIn();
 $user = Auth::user();
 $step = filter_input(INPUT_GET, 'step', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 $step = $step === 'billing' ? 'billing' : 'summary';
-$selectedDays = filter_input(INPUT_GET, 'rental_days', FILTER_VALIDATE_INT);
+$inputSource = $_SERVER['REQUEST_METHOD'] === 'POST' ? INPUT_POST : INPUT_GET;
+$selectedDays = filter_input($inputSource, 'rental_days', FILTER_VALIDATE_INT);
 if (!in_array($selectedDays, $durations, true)) {
     $selectedDays = null;
 }
 
-$deviceIds = filter_input(INPUT_GET, 'device_id', FILTER_VALIDATE_INT, FILTER_REQUIRE_ARRAY);
+$deviceIds = filter_input($inputSource, 'device_id', FILTER_VALIDATE_INT, FILTER_REQUIRE_ARRAY);
 if ($deviceIds === null || $deviceIds === false) {
-    $singleDeviceId = filter_input(INPUT_GET, 'device_id', FILTER_VALIDATE_INT);
+    $singleDeviceId = filter_input($inputSource, 'device_id', FILTER_VALIDATE_INT);
     $deviceIds = $singleDeviceId ? [$singleDeviceId] : [];
 }
 $deviceIds = is_array($deviceIds) ? array_values(array_unique(array_filter($deviceIds))) : [];
+
+$orderComplete = false;
+$orderMessage = null;
+$orderErrors = [];
 
 $selectedDevices = [];
 try {
@@ -55,7 +60,81 @@ $formattedTotal = $totalPrice > 0
     ? number_format($totalPrice, 2, ',', ' ') . ' €'
     : '—';
 
-$page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step, $selectedDays, $deviceIds, $totalPerDay, $formattedTotal, $user): void {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
+    if ($selectedDays === null) {
+        $orderErrors[] = 'Vyberte platnú dobu prenájmu.';
+    }
+    if ($deviceIds === []) {
+        $orderErrors[] = 'Vyberte zariadenie na prenájom.';
+    }
+
+    $consent = filter_input(INPUT_POST, 'consent', FILTER_VALIDATE_BOOLEAN);
+    if ($consent !== true) {
+        $orderErrors[] = 'Na dokončenie prenájmu musíte súhlasiť s podmienkami.';
+    }
+
+    $unavailableDevices = array_filter(
+        $selectedDevices,
+        static fn(array $device): bool => ($device['status'] ?? 'dostupne') !== 'dostupne'
+    );
+    if ($unavailableDevices !== []) {
+        $orderErrors[] = 'Niektoré vybrané zariadenia už nie sú dostupné.';
+    }
+
+    if ($orderErrors === []) {
+        $fullName = trim((string) filter_input(INPUT_POST, 'full_name', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
+        $phone = trim((string) filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
+        $street = trim((string) filter_input(INPUT_POST, 'street', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
+        $city = trim((string) filter_input(INPUT_POST, 'city', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
+        $postalCode = trim((string) filter_input(INPUT_POST, 'postal_code', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
+
+        $userUpdates = [];
+        if ($phone !== '') {
+            $userUpdates['telefon'] = $phone;
+        }
+        if ($street !== '') {
+            $userUpdates['ulica'] = $street;
+        }
+        if ($city !== '') {
+            $userUpdates['mesto'] = $city;
+        }
+        if ($postalCode !== '') {
+            $userUpdates['psc'] = $postalCode;
+        }
+
+        $items = [];
+        foreach ($selectedDevices as $device) {
+            $items[] = [
+                'device_id' => (int) $device['id'],
+                'price_per_day' => (float) ($device['price_per_day'] ?? 0.0),
+            ];
+        }
+
+        try {
+            $database = new Database();
+            if ($user && $userUpdates !== []) {
+                $database->updateUserFields((int) $user['id'], $userUpdates);
+            }
+
+            $startDate = new DateTimeImmutable('today');
+            $endDate = $startDate->modify('+' . $selectedDays . ' days');
+            $rentalId = $database->createRental(
+                (int) $user['id'],
+                $startDate->format('Y-m-d'),
+                $endDate->format('Y-m-d'),
+                (float) $totalPrice,
+                $items
+            );
+
+            $orderComplete = true;
+            $orderMessage = 'Prenájom bol úspešne uložený. Číslo objednávky: #' . $rentalId . '.';
+        } catch (Throwable $exception) {
+            $orderErrors[] = 'Prenájom sa nepodarilo uložiť. Skúste to prosím neskôr.';
+        }
+    }
+}
+
+$page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step, $selectedDays, $deviceIds, $totalPerDay, $formattedTotal, $user, $orderComplete, $orderErrors, $orderMessage): void {
     $fullName = $user['name'] ?? '';
     $email = $user['email'] ?? '';
     $phone = $user['phone'] ?? '';
@@ -164,47 +243,70 @@ $page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step,
                   <li>Celková suma: <?= htmlspecialchars($formattedTotal, ENT_QUOTES, 'UTF-8') ?></li>
                 </ul>
               </div>
-              <form class="order-form">
-                <div class="form-grid">
-                  <label>
-                    Meno a priezvisko
-                    <input type="text" placeholder="Ján Novák" value="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>" required />
-                  </label>
-                  <label>
-                    Email
-                    <input type="email" placeholder="vas@email.sk" value="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>" required />
-                  </label>
-                  <label>
-                    Telefón
-                    <input type="tel" placeholder="+421 900 000 000" value="<?= htmlspecialchars($phone, ENT_QUOTES, 'UTF-8') ?>" required />
-                  </label>
-                  <label>
-                    Fakturačná adresa
-                    <input type="text" placeholder="Ulica a číslo" value="<?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?>" required />
-                  </label>
-                  <label>
-                    Mesto
-                    <input type="text" placeholder="Bratislava" value="<?= htmlspecialchars($city, ENT_QUOTES, 'UTF-8') ?>" required />
-                  </label>
-                  <label>
-                    PSČ
-                    <input type="text" placeholder="811 01" required />
-                  </label>
-                  <label>
-                    Dodacia adresa
-                    <input type="text" placeholder="Ak je iná ako fakturačná" />
-                  </label>
-                  <label>
-                    Poznámka pre kuriéra
-                    <input type="text" placeholder="Kontaktovať pred doručením" />
-                  </label>
+              <?php if ($orderComplete): ?>
+                <div class="feature-card">
+                  <h3>Ďakujeme za objednávku</h3>
+                  <p><?= htmlspecialchars($orderMessage ?? 'Prenájom bol uložený.', ENT_QUOTES, 'UTF-8') ?></p>
+                  <a class="primary-button" href="zariadenia.php">Späť na katalóg</a>
                 </div>
-                <div class="checkbox">
-                  <input type="checkbox" required />
-                  Súhlasím so všeobecnými podmienkami a spracovaním údajov.
-                </div>
-                <button class="primary-button" type="submit">Odoslať objednávku</button>
-              </form>
+              <?php else: ?>
+                <?php if ($orderErrors !== []): ?>
+                  <div class="feature-card">
+                    <h3>Objednávku sa nepodarilo dokončiť</h3>
+                    <ul>
+                      <?php foreach ($orderErrors as $error): ?>
+                        <li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></li>
+                      <?php endforeach; ?>
+                    </ul>
+                  </div>
+                <?php endif; ?>
+                <form class="order-form" method="post" action="kosik.php?step=billing">
+                  <input type="hidden" name="step" value="confirm" />
+                  <input type="hidden" name="rental_days" value="<?= (int) $selectedDays ?>" />
+                  <?php foreach ($deviceIds as $deviceId): ?>
+                    <input type="hidden" name="device_id[]" value="<?= (int) $deviceId ?>" />
+                  <?php endforeach; ?>
+                  <div class="form-grid">
+                    <label>
+                      Meno a priezvisko
+                      <input type="text" name="full_name" placeholder="Ján Novák" value="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>" required />
+                    </label>
+                    <label>
+                      Email
+                      <input type="email" name="email" placeholder="vas@email.sk" value="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>" required />
+                    </label>
+                    <label>
+                      Telefón
+                      <input type="tel" name="phone" placeholder="+421 900 000 000" value="<?= htmlspecialchars($phone, ENT_QUOTES, 'UTF-8') ?>" required />
+                    </label>
+                    <label>
+                      Fakturačná adresa
+                      <input type="text" name="street" placeholder="Ulica a číslo" value="<?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?>" required />
+                    </label>
+                    <label>
+                      Mesto
+                      <input type="text" name="city" placeholder="Bratislava" value="<?= htmlspecialchars($city, ENT_QUOTES, 'UTF-8') ?>" required />
+                    </label>
+                    <label>
+                      PSČ
+                      <input type="text" name="postal_code" placeholder="811 01" required />
+                    </label>
+                    <label>
+                      Dodacia adresa
+                      <input type="text" name="delivery_address" placeholder="Ak je iná ako fakturačná" />
+                    </label>
+                    <label>
+                      Poznámka pre kuriéra
+                      <input type="text" name="courier_note" placeholder="Kontaktovať pred doručením" />
+                    </label>
+                  </div>
+                  <div class="checkbox">
+                    <input type="checkbox" name="consent" value="1" required />
+                    Súhlasím so všeobecnými podmienkami a spracovaním údajov.
+                  </div>
+                  <button class="primary-button" type="submit">Odoslať objednávku</button>
+                </form>
+              <?php endif; ?>
             <?php endif; ?>
           <?php endif; ?>
         <?php endif; ?>

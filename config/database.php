@@ -109,7 +109,7 @@ class Database
 
     public function fetchDeviceById(int $deviceId): ?array
     {
-        $sql = "SELECT id, znacka, model, ram, velkost_displeja, typ_zariadenia, cena_za_den
+        $sql = "SELECT id, znacka, model, ram, velkost_displeja, typ_zariadenia, cena_za_den, stav
                 FROM MA_zariadenia
                 WHERE id = ?
                 LIMIT 1";
@@ -135,6 +135,7 @@ class Database
             'details' => $details ? implode(' • ', $details) : 'Parametre budú doplnené.',
             'price_per_day' => (float) $row['cena_za_den'],
             'price' => 'od ' . number_format((float) $row['cena_za_den'], 2, ',', ' ') . ' €/deň',
+            'status' => $row['stav'] ?? 'dostupne',
         ];
     }
 
@@ -262,6 +263,65 @@ class Database
         return $insertId;
     }
 
+    public function createRental(int $userId, string $startDate, string $endDate, float $totalPrice, array $items): int
+    {
+        if ($items === []) {
+            throw new \InvalidArgumentException('Prenajom musi obsahovat aspon jednu polozku.');
+        }
+
+        $this->conn->begin_transaction();
+        try {
+            $sql = "INSERT INTO MA_prenajmy (pouzivatel_id, zaciatok, koniec, celkova_cena)
+                    VALUES (?, ?, ?, ?)";
+            $statement = $this->conn->prepare($sql);
+            if ($statement === false) {
+                throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+            }
+
+            $statement->bind_param('issd', $userId, $startDate, $endDate, $totalPrice);
+            $statement->execute();
+
+            if ($statement->errno) {
+                $error = $statement->error;
+                $statement->close();
+                throw new \RuntimeException('SQL chyba: ' . $error);
+            }
+
+            $rentalId = $statement->insert_id;
+            $statement->close();
+
+            $itemStatement = $this->conn->prepare(
+                "INSERT INTO MA_polozky_prenajmu (prenajom_id, zariadenie_id, cena_za_den)
+                 VALUES (?, ?, ?)"
+            );
+            if ($itemStatement === false) {
+                throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+            }
+
+            foreach ($items as $item) {
+                $deviceId = (int) $item['device_id'];
+                $pricePerDay = (float) $item['price_per_day'];
+                $itemStatement->bind_param('iid', $rentalId, $deviceId, $pricePerDay);
+                $itemStatement->execute();
+
+                if ($itemStatement->errno) {
+                    $error = $itemStatement->error;
+                    $itemStatement->close();
+                    throw new \RuntimeException('SQL chyba: ' . $error);
+                }
+            }
+
+            $itemStatement->close();
+            $this->updateDeviceAvailability(array_column($items, 'device_id'), 'nedostupne');
+
+            $this->conn->commit();
+            return $rentalId;
+        } catch (Throwable $exception) {
+            $this->conn->rollback();
+            throw $exception;
+        }
+    }
+
     public function updateUserFields(int $userId, array $fields): void
     {
         if ($fields === []) {
@@ -282,6 +342,40 @@ class Database
             throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
         }
 
+        $types = $this->buildParamTypes($params);
+        $bindParams = [$types];
+        foreach ($params as $index => $value) {
+            $bindParams[] = &$params[$index];
+        }
+        $statement->bind_param(...$bindParams);
+        $statement->execute();
+
+        if ($statement->errno) {
+            $error = $statement->error;
+            $statement->close();
+            throw new \RuntimeException('SQL chyba: ' . $error);
+        }
+
+        $statement->close();
+    }
+
+    private function updateDeviceAvailability(array $deviceIds, string $status): void
+    {
+        $deviceIds = array_values(array_unique(array_filter($deviceIds, 'is_numeric')));
+        if ($deviceIds === []) {
+            return;
+        }
+
+        $params = [];
+        $clause = $this->buildInClause('id', $deviceIds, $params);
+
+        $sql = "UPDATE MA_zariadenia SET stav = ? WHERE {$clause}";
+        $statement = $this->conn->prepare($sql);
+        if ($statement === false) {
+            throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+        }
+
+        $params = array_merge([$status], $params);
         $types = $this->buildParamTypes($params);
         $bindParams = [$types];
         foreach ($params as $index => $value) {
