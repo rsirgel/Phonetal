@@ -367,19 +367,14 @@ class Database
             return;
         }
 
-        $placeholders = implode(', ', array_fill(0, count($deviceIds), '?'));
-        $sql = "UPDATE MA_zariadenia SET stav = ? WHERE id IN ({$placeholders})";
         $params = [];
         $clause = $this->buildInClause('id', $deviceIds, $params);
-
         $sql = "UPDATE MA_zariadenia SET stav = ? WHERE {$clause}";
         $statement = $this->conn->prepare($sql);
         if ($statement === false) {
             throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
         }
 
-        $params = array_merge([$status], $deviceIds);
-        $types = 's' . str_repeat('i', count($deviceIds));
         $params = array_merge([$status], $params);
         $types = $this->buildParamTypes($params);
         $bindParams = [$types];
