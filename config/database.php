@@ -363,18 +363,30 @@ class Database
     {
         $deviceIds = array_values(array_unique(array_map('intval', $deviceIds)));
         $deviceIds = array_values(array_filter($deviceIds, static fn(int $id): bool => $id > 0));
+        $deviceIds = array_values(array_unique(array_filter($deviceIds, 'is_numeric')));
         if ($deviceIds === []) {
             return;
         }
 
         $idList = implode(', ', $deviceIds);
         $sql = "UPDATE MA_zariadenia SET stav = ? WHERE id IN ({$idList})";
+        $params = [];
+        $clause = $this->buildInClause('id', $deviceIds, $params);
+        $sql = "UPDATE MA_zariadenia SET stav = ? WHERE {$clause}";
         $statement = $this->conn->prepare($sql);
         if ($statement === false) {
             throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
         }
 
         $statement->bind_param('s', $status);
+        $statement->execute();
+        $params = array_merge([$status], $params);
+        $types = $this->buildParamTypes($params);
+        $bindParams = [$types];
+        foreach ($params as $index => $value) {
+            $bindParams[] = &$params[$index];
+        }
+        $statement->bind_param(...$bindParams);
         $statement->execute();
 
         if ($statement->errno) {
