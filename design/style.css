@@ -210,7 +210,6 @@ main {
 
 .category-grid,
 .services-grid,
-.feature-grid,
 .steps-grid,
 .product-grid,
 .timeline {
@@ -220,7 +219,6 @@ main {
 }
 
 .category-card,
-.feature-card,
 .steps-grid article,
 .services-grid article,
 .product-card,

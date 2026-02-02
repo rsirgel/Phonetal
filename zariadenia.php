@@ -1,10 +1,18 @@
 <?php
-require_once __DIR__ . '/models/page.php';
+require_once __DIR__ . '/models/Page.php';
+require_once __DIR__ . '/models/device-filter.php';
+require_once __DIR__ . '/models/device-card.php';
 require_once __DIR__ . '/config/database.php';
 
+$deviceId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$pageTitle = $deviceId ? 'Phonetal | Detail zariadenia' : 'Phonetal | Zariadenia na prenájom';
+$pageDescription = $deviceId
+    ? 'Detail zariadenia s fotkami, popisom a recenziami.'
+    : 'Prehľad zariadení na prenájom: mobilné telefóny, tablety, slúchadlá a smart hodinky.';
+
 $page = new Page(
-    'Phonetal | Detail zariadenia',
-    'Detail zariadenia s fotkami, popisom a recenziami.',
+    $pageTitle,
+    $pageDescription,
     'zariadenia.php'
 );
 
@@ -143,6 +151,19 @@ $fallbackDevices = [
 ];
 
 $device = null;
+$devices = [];
+$filterOptions = [
+    'typy' => [],
+    'znacky' => [],
+    'ram' => [],
+    'uhlopriecky' => [],
+];
+$selectedFilters = [
+    'typy' => [],
+    'znacky' => [],
+    'ram' => [],
+    'uhlopriecky' => [],
+];
 
 if ($deviceId && isset($fallbackDevices[$deviceId])) {
     $device = $fallbackDevices[$deviceId];
@@ -159,32 +180,85 @@ if ($deviceId) {
     } catch (Throwable $exception) {
         // Fallback data is already set above when available.
     }
+} else {
+    try {
+        $database = new Database();
+        $filterOptions = $database->fetchFilterOptions();
+        $selectedFilters = [
+            'typy' => array_values(filter_input(INPUT_GET, 'typy', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
+            'znacky' => array_values(filter_input(INPUT_GET, 'znacky', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
+            'ram' => array_values(filter_input(INPUT_GET, 'ram', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
+            'uhlopriecky' => array_values(filter_input(INPUT_GET, 'uhlopriecky', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
+        ];
+        $devices = $database->fetchDevicesByFilters($selectedFilters);
+    } catch (Throwable $exception) {
+        $devices = [];
+    }
 }
 
-$page->render(function () use ($device, $deviceId): void {
+$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters): void {
     ?>
-      <section class="page-hero">
-        <div>
-          <p class="eyebrow">Detail zariadenia</p>
-          <h1><?= $device ? htmlspecialchars($device['name'], ENT_QUOTES, 'UTF-8') : 'Zariadenie nenájdené' ?></h1>
-          <p>
-            <?= $device
-                ? htmlspecialchars($device['summary'], ENT_QUOTES, 'UTF-8')
-                : 'Skontrolujte prosím odkaz alebo sa vráťte do katalógu zariadení.' ?>
-          </p>
-        </div>
-        <div class="page-hero-card">
-          <h2>Čo získate</h2>
-          <ul>
-            <li>Flexibilné dĺžky prenájmu</li>
-            <li>Expresné doručenie do 24 hodín</li>
-            <li>Poistenie a servis v cene</li>
-            <li>Možnosť výmeny počas prenájmu</li>
-          </ul>
-        </div>
-      </section>
+      <?php if (!$deviceId): ?>
+        <section class="page-hero">
+          <div>
+            <p class="eyebrow">Katalóg zariadení</p>
+            <h1>Zariadenia na prenájom</h1>
+            <p>
+              Vyberte si z dostupných zariadení podľa typu, značky alebo parametrov. Zobrazené sú iba
+              položky, ktoré máme momentálne skladom.
+            </p>
+          </div>
+          <div class="page-hero-card">
+            <h2>Rýchle filtre</h2>
+            <ul>
+              <li>Minimálny prenájom: 7 dní</li>
+              <li>Maximálny prenájom: 60 dní</li>
+              <li>Dostupnosť: skladom</li>
+              <li>Platba: Google Pay, Apple Pay, PayPal</li>
+            </ul>
+          </div>
+        </section>
 
-      <?php if (!$deviceId || !$device): ?>
+        <section class="section device-section">
+          <div class="device-layout">
+            <?php renderDeviceFilter($filterOptions, $selectedFilters); ?>
+            <div class="device-list">
+              <div class="section-heading">
+                <h2>Aktuálne dostupné zariadenia</h2>
+                <p>Vyberte si zariadenie z databázy podľa parametrov, ktoré vám vyhovujú.</p>
+              </div>
+              <div class="product-grid">
+                <?php if ($devices === []): ?>
+                  <div class="feature-card">
+                    <h3>Žiadne zariadenia v ponuke</h3>
+                    <p>Skúste upraviť filtre alebo sa vráťte neskôr.</p>
+                  </div>
+                <?php else: ?>
+                  <?php foreach ($devices as $deviceItem): ?>
+                    <?php renderDeviceCard($deviceItem); ?>
+                  <?php endforeach; ?>
+                <?php endif; ?>
+              </div>
+            </div>
+          </div>
+        </section>
+      <?php elseif (!$device): ?>
+        <section class="page-hero">
+          <div>
+            <p class="eyebrow">Detail zariadenia</p>
+            <h1>Zariadenie nenájdené</h1>
+            <p>Skontrolujte prosím odkaz alebo sa vráťte do katalógu zariadení.</p>
+          </div>
+          <div class="page-hero-card">
+            <h2>Čo získate</h2>
+            <ul>
+              <li>Flexibilné dĺžky prenájmu</li>
+              <li>Expresné doručenie do 24 hodín</li>
+              <li>Poistenie a servis v cene</li>
+              <li>Možnosť výmeny počas prenájmu</li>
+            </ul>
+          </div>
+        </section>
         <section class="section">
           <div class="feature-card">
             <h2>Zariadenie sa nepodarilo načítať</h2>
@@ -193,6 +267,23 @@ $page->render(function () use ($device, $deviceId): void {
           </div>
         </section>
       <?php else: ?>
+        <section class="page-hero">
+          <div>
+            <p class="eyebrow">Detail zariadenia</p>
+            <h1><?= htmlspecialchars($device['name'], ENT_QUOTES, 'UTF-8') ?></h1>
+            <p><?= htmlspecialchars($device['summary'], ENT_QUOTES, 'UTF-8') ?></p>
+          </div>
+          <div class="page-hero-card">
+            <h2>Čo získate</h2>
+            <ul>
+              <li>Flexibilné dĺžky prenájmu</li>
+              <li>Expresné doručenie do 24 hodín</li>
+              <li>Poistenie a servis v cene</li>
+              <li>Možnosť výmeny počas prenájmu</li>
+            </ul>
+          </div>
+        </section>
+
         <section class="device-detail-hero">
           <div>
             <p class="eyebrow"><?= htmlspecialchars(ucfirst($device['type']), ENT_QUOTES, 'UTF-8') ?></p>
@@ -219,7 +310,6 @@ $page->render(function () use ($device, $deviceId): void {
             <?php endforeach; ?>
           </div>
         </section>
-
         <section class="section device-detail-grid">
           <div class="device-detail-card">
             <h3>Popis zariadenia</h3>
@@ -237,7 +327,6 @@ $page->render(function () use ($device, $deviceId): void {
             </div>
           </div>
         </section>
-
         <section class="section">
           <div class="section-heading">
             <h2>Recenzie</h2>

@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/models/page.php';
+require_once __DIR__ . '/models/Page.php';
 
 $page = new Page(
     'Phonetal | Služby',
@@ -47,27 +47,6 @@ $page->render(function (): void {
             <h3>Výkup zariadení</h3>
             <p>Férové ohodnotenie zariadení a možnosť odkúpenia po prenájme.</p>
           </article>
-        </div>
-      </section>
-
-      <section class="section feature-list">
-        <div class="section-heading">
-          <h2>Podpora a bezpečnosť</h2>
-          <p>Ochrana proti útokom, bezpečné platby a moderné API integrácie.</p>
-        </div>
-        <div class="feature-grid">
-          <div class="feature-card">
-            <h3>Bezpečné API</h3>
-            <p>Ochrana pred XSS, SQL injection a CSRF.</p>
-          </div>
-          <div class="feature-card">
-            <h3>Autentifikácia</h3>
-            <p>Registrácia, prihlásenie, profil zákazníka a Google auth.</p>
-          </div>
-          <div class="feature-card">
-            <h3>Analytika</h3>
-            <p>Google Analytics a prehľad návštevnosti.</p>
-          </div>
         </div>
       </section>
     <?php
