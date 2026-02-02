@@ -80,6 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
     if ($unavailableDevices !== []) {
         $orderErrors[] = 'Niektoré vybrané zariadenia už nie sú dostupné.';
     }
+    if ($selectedDevices === []) {
+        $orderErrors[] = 'Vybrané zariadenie sa nepodarilo načítať. Skúste to prosím znova.';
+    } elseif (count($selectedDevices) !== count($deviceIds)) {
+        $orderErrors[] = 'Niektoré vybrané zariadenia sa nepodarilo načítať. Skúste to prosím znova.';
+    }
 
     if ($orderErrors === []) {
         if (!$user || empty($user['id'])) {

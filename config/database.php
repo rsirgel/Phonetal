@@ -362,31 +362,19 @@ class Database
     private function updateDeviceAvailability(array $deviceIds, string $status): void
     {
         $deviceIds = array_values(array_unique(array_map('intval', $deviceIds)));
-        $deviceIds = array_values(array_unique(array_filter($deviceIds, 'is_numeric')));
+        $deviceIds = array_values(array_filter($deviceIds, static fn(int $id): bool => $id > 0));
         if ($deviceIds === []) {
             return;
         }
 
-        $placeholders = implode(', ', array_fill(0, count($deviceIds), '?'));
-        $sql = "UPDATE MA_zariadenia SET stav = ? WHERE id IN ({$placeholders})";
-        $params = [];
-        $clause = $this->buildInClause('id', $deviceIds, $params);
-
-        $sql = "UPDATE MA_zariadenia SET stav = ? WHERE {$clause}";
+        $idList = implode(', ', $deviceIds);
+        $sql = "UPDATE MA_zariadenia SET stav = ? WHERE id IN ({$idList})";
         $statement = $this->conn->prepare($sql);
         if ($statement === false) {
             throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
         }
 
-        $params = array_merge([$status], $deviceIds);
-        $types = 's' . str_repeat('i', count($deviceIds));
-        $params = array_merge([$status], $params);
-        $types = $this->buildParamTypes($params);
-        $bindParams = [$types];
-        foreach ($params as $index => $value) {
-            $bindParams[] = &$params[$index];
-        }
-        $statement->bind_param(...$bindParams);
+        $statement->bind_param('s', $status);
         $statement->execute();
 
         if ($statement->errno) {
