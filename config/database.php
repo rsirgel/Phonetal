@@ -161,7 +161,7 @@ class Database
     public function fetchUserByEmail(string $email): ?array
     {
         $rows = $this->fetchAll(
-            "SELECT id, meno, priezvisko, email, password_hash, telefon, rodne_cislo, mesto, ulica, rola
+            "SELECT id, meno, priezvisko, email, password_hash, telefon, rodne_cislo, mesto, ulica, psc, iban, bic, meno_uctu, rola
              FROM MA_pouzivatelia
              WHERE email = ?
              LIMIT 1",
@@ -219,8 +219,8 @@ class Database
     public function createUser(array $payload): int
     {
         $sql = "INSERT INTO MA_pouzivatelia
-                (meno, priezvisko, email, password_hash, telefon, rodne_cislo, mesto, ulica, rola)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                (meno, priezvisko, email, password_hash, telefon, rodne_cislo, mesto, ulica, psc, iban, bic, meno_uctu, rola)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $params = [
             $payload['meno'],
             $payload['priezvisko'],
@@ -230,6 +230,10 @@ class Database
             $payload['rodne_cislo'],
             $payload['mesto'],
             $payload['ulica'],
+            $payload['psc'],
+            $payload['iban'],
+            $payload['bic'],
+            $payload['meno_uctu'],
             $payload['rola'],
         ];
 
@@ -257,6 +261,44 @@ class Database
 
         return $insertId;
     }
+
+    public function updateUserFields(int $userId, array $fields): void
+    {
+        if ($fields === []) {
+            return;
+        }
+
+        $setParts = [];
+        $params = [];
+        foreach ($fields as $column => $value) {
+            $setParts[] = "{$column} = ?";
+            $params[] = $value;
+        }
+        $params[] = $userId;
+
+        $sql = "UPDATE MA_pouzivatelia SET " . implode(', ', $setParts) . " WHERE id = ?";
+        $statement = $this->conn->prepare($sql);
+        if ($statement === false) {
+            throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+        }
+
+        $types = $this->buildParamTypes($params);
+        $bindParams = [$types];
+        foreach ($params as $index => $value) {
+            $bindParams[] = &$params[$index];
+        }
+        $statement->bind_param(...$bindParams);
+        $statement->execute();
+
+        if ($statement->errno) {
+            $error = $statement->error;
+            $statement->close();
+            throw new \RuntimeException('SQL chyba: ' . $error);
+        }
+
+        $statement->close();
+    }
+
     private function fetchDistinctOptions(string $column): array
     {
         $rows = $this->fetchAll(

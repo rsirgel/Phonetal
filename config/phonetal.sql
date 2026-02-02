@@ -8,6 +8,10 @@ CREATE TABLE MA_pouzivatelia (
   rodne_cislo VARCHAR(20),
   mesto VARCHAR(50),
   ulica VARCHAR(100),
+  psc VARCHAR(10),
+  iban VARCHAR(34),
+  bic VARCHAR(11),
+  meno_uctu VARCHAR(100),
   rola ENUM('pouzivatel', 'admin') DEFAULT 'pouzivatel'
 );
 

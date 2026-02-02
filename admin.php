@@ -87,26 +87,7 @@ $page = new Page(
 
 $page->render(function () use ($user, $isAdmin, $message, $error, $formData, $deviceTypes, $deviceStatuses): void {
     ?>
-      <section class="page-hero">
-        <div>
-          <p class="eyebrow">Administrácia</p>
-          <h1>Admin panel</h1>
-          <p>Správa zariadení, objednávok a používateľov.</p>
-        </div>
-        <div class="page-hero-card">
-          <h2>Prístup</h2>
-          <ul>
-            <li>Rola: <?= $user ? htmlspecialchars($user['role'], ENT_QUOTES, 'UTF-8') : '—' ?></li>
-            <li>Stav: <?= $isAdmin ? 'admin' : 'bez prístupu' ?></li>
-          </ul>
-        </div>
-      </section>
-
       <section class="section">
-        <div class="section-heading">
-          <h2>Admin nástroje</h2>
-          <p>Táto sekcia je dostupná len pre adminov.</p>
-        </div>
         <?php if (!$isAdmin): ?>
           <p class="form-message">Nemáte oprávnenie na prístup do admin panelu.</p>
           <a class="primary-button" href="login.php">Prihlásiť ako admin</a>

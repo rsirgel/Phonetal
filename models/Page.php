@@ -37,6 +37,11 @@ class Page
         if ($user && $user['role'] === 'admin') {
             $links['robots.php'] = 'Roadmap';
         }
+        $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+        $basePath = rtrim($scriptDir, '/');
+        if ($basePath !== '' && str_ends_with($basePath, '/models')) {
+            $basePath = rtrim(dirname($basePath), '/');
+        }
         ?>
 <!DOCTYPE html>
 <html lang="sk">
@@ -58,7 +63,7 @@ class Page
     <link rel="stylesheet" href="design/navbar.css" />
     <link rel="stylesheet" href="design/sidemenu.css" />
   </head>
-  <body>
+  <body data-app-base="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>">
     <header class="site-header">
       <nav class="navbar">
         <a class="logo" href="index.php">
@@ -93,7 +98,7 @@ class Page
                 <a
                   class="profile-dropdown-item"
                   role="menuitem"
-                  href="<?= $user['role'] === 'admin' ? 'admin.php' : 'models/User.php' ?>"
+                  href="<?= $user['role'] === 'admin' ? 'admin.php' : 'user.php' ?>"
                 >
                   Účet zákazníka
                 </a>
@@ -134,11 +139,28 @@ class Page
       const searchInput = document.getElementById('search-input');
       const searchResults = document.getElementById('search-results');
 
+
       if (searchInput && searchResults) {
         let controller;
-        searchInput.addEventListener('input', async (event) => {
-          const value = event.target.value.trim();
-          if (value.length < 3) {
+        const minLength = 2;
+        const basePath = document.body.dataset.appBase || '';
+        const searchEndpoint = `${window.location.origin}${basePath}/search.php`;
+
+        const renderResults = (items, emptyMessage = 'Žiadne výsledky.') => {
+          if (!items.length) {
+            searchResults.innerHTML = `<div class="search-empty">${emptyMessage}</div>`;
+            searchResults.classList.add('is-visible');
+            return;
+          }
+
+          searchResults.innerHTML = items
+            .map((item) => `<button type="button" class="search-item">${item}</button>`)
+            .join('');
+          searchResults.classList.add('is-visible');
+        };
+
+        const fetchSuggestions = async (value) => {
+          if (value.length < minLength) {
             searchResults.innerHTML = '';
             searchResults.classList.remove('is-visible');
             return;
@@ -150,18 +172,29 @@ class Page
           controller = new AbortController();
 
           try {
-            const response = await fetch(`search.php?q=${encodeURIComponent(value)}`, {
+            const response = await fetch(`${searchEndpoint}?q=${encodeURIComponent(value)}`, {
               signal: controller.signal,
             });
+            if (!response.ok) {
+              throw new Error('Search failed');
+            }
             const items = await response.json();
-            searchResults.innerHTML = items
-              .map((item) => `<button type="button" class="search-item">${item}</button>`)
-              .join('');
-            searchResults.classList.toggle('is-visible', items.length > 0);
+            renderResults(items);
           } catch (error) {
-            searchResults.innerHTML = '';
-            searchResults.classList.remove('is-visible');
+            renderResults([], 'Vyhľadávanie je momentálne nedostupné.');
           }
+        };
+
+        searchInput.addEventListener('input', (event) => {
+          fetchSuggestions(event.target.value.trim());
+        });
+
+        searchInput.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter') {
+            return;
+          }
+          event.preventDefault();
+          fetchSuggestions(event.target.value.trim());
         });
 
         searchResults.addEventListener('click', (event) => {
@@ -171,6 +204,18 @@ class Page
             searchResults.innerHTML = '';
             searchResults.classList.remove('is-visible');
           }
+        });
+      }
+
+      const filterInputs = document.querySelectorAll('[data-filter-input]');
+      if (filterInputs.length) {
+        filterInputs.forEach((input) => {
+          input.addEventListener('change', () => {
+            const form = input.closest('form');
+            if (form) {
+              form.submit();
+            }
+          });
         });
       }
     </script>

@@ -26,44 +26,6 @@ if ($deviceIds === null || $deviceIds === false) {
 }
 $deviceIds = is_array($deviceIds) ? array_values(array_unique(array_filter($deviceIds))) : [];
 
-$fallbackDevices = [
-    1 => [
-        'id' => 1,
-        'name' => 'iPhone 15 Pro',
-        'details' => '6.1" • 8 GB RAM',
-        'price_per_day' => 19.0,
-        'price' => 'od 19,00 €/deň',
-    ],
-    2 => [
-        'id' => 2,
-        'name' => 'Samsung Galaxy S24',
-        'details' => '6.7" • 8 GB RAM',
-        'price_per_day' => 16.0,
-        'price' => 'od 16,00 €/deň',
-    ],
-    3 => [
-        'id' => 3,
-        'name' => 'iPad Pro 12.9"',
-        'details' => '12.9" • 16 GB RAM',
-        'price_per_day' => 18.0,
-        'price' => 'od 18,00 €/deň',
-    ],
-    4 => [
-        'id' => 4,
-        'name' => 'Galaxy Tab S9',
-        'details' => '11" • 12 GB RAM',
-        'price_per_day' => 14.0,
-        'price' => 'od 14,00 €/deň',
-    ],
-    5 => [
-        'id' => 5,
-        'name' => 'Apple AirPods Max',
-        'details' => 'Prémiové slúchadlá',
-        'price_per_day' => 8.0,
-        'price' => 'od 8,00 €/deň',
-    ],
-];
-
 $selectedDevices = [];
 try {
     $database = new Database();

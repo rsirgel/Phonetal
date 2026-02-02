@@ -34,8 +34,12 @@ class Auth
             'phone' => $user['telefon'],
             'city' => $user['mesto'],
             'street' => $user['ulica'],
+            'postal_code' => $user['psc'],
+            'iban' => $user['iban'],
+            'bic' => $user['bic'],
+            'account_owner' => $user['meno_uctu'],
             'birth_number' => $user['rodne_cislo'],
-        ];
+        ];  
 
         return true;
     }
@@ -55,6 +59,10 @@ class Auth
             'rodne_cislo' => null,
             'mesto' => null,
             'ulica' => null,
+            'psc' => null,
+            'iban' => null,
+            'bic' => null,
+            'meno_uctu' => null,
             'rola' => 'pouzivatel',
         ]);
 
@@ -65,6 +73,10 @@ class Auth
             'first_name' => $firstName,
             'last_name' => $lastName,
             'role' => 'pouzivatel',
+            'postal_code' => null,
+            'iban' => null,
+            'bic' => null,
+            'account_owner' => null,
         ];
     }
 
