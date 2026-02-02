@@ -11,6 +11,7 @@ $page = new Page(
 
 $durations = [7, 14, 30, 60];
 $isLoggedIn = Auth::isLoggedIn();
+$user = Auth::user();
 $step = filter_input(INPUT_GET, 'step', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 $step = $step === 'billing' ? 'billing' : 'summary';
 $selectedDays = filter_input(INPUT_GET, 'rental_days', FILTER_VALIDATE_INT);
@@ -92,7 +93,12 @@ $formattedTotal = $totalPrice > 0
     ? number_format($totalPrice, 2, ',', ' ') . ' €'
     : '—';
 
-$page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step, $selectedDays, $deviceIds, $totalPerDay, $formattedTotal): void {
+$page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step, $selectedDays, $deviceIds, $totalPerDay, $formattedTotal, $user): void {
+    $fullName = $user['name'] ?? '';
+    $email = $user['email'] ?? '';
+    $phone = $user['phone'] ?? '';
+    $street = $user['street'] ?? '';
+    $city = $user['city'] ?? '';
     ?>
       <section class="page-hero">
         <div>
@@ -200,23 +206,23 @@ $page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step,
                 <div class="form-grid">
                   <label>
                     Meno a priezvisko
-                    <input type="text" placeholder="Ján Novák" required />
+                    <input type="text" placeholder="Ján Novák" value="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>" required />
                   </label>
                   <label>
                     Email
-                    <input type="email" placeholder="vas@email.sk" required />
+                    <input type="email" placeholder="vas@email.sk" value="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>" required />
                   </label>
                   <label>
                     Telefón
-                    <input type="tel" placeholder="+421 900 000 000" required />
+                    <input type="tel" placeholder="+421 900 000 000" value="<?= htmlspecialchars($phone, ENT_QUOTES, 'UTF-8') ?>" required />
                   </label>
                   <label>
                     Fakturačná adresa
-                    <input type="text" placeholder="Ulica a číslo" required />
+                    <input type="text" placeholder="Ulica a číslo" value="<?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?>" required />
                   </label>
                   <label>
                     Mesto
-                    <input type="text" placeholder="Bratislava" required />
+                    <input type="text" placeholder="Bratislava" value="<?= htmlspecialchars($city, ENT_QUOTES, 'UTF-8') ?>" required />
                   </label>
                   <label>
                     PSČ

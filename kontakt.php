@@ -1,5 +1,12 @@
 <?php
 require_once __DIR__ . '/models/Page.php';
+require_once __DIR__ . '/models/Auth.php';
+
+Auth::init();
+$user = Auth::user();
+$fullName = $user['name'] ?? '';
+$email = $user['email'] ?? '';
+$phone = $user['phone'] ?? '';
 
 $page = new Page(
     'Phonetal | Kontakt',
@@ -7,7 +14,7 @@ $page = new Page(
     'kontakt.php'
 );
 
-$page->render(function (): void {
+$page->render(function () use ($fullName, $email, $phone): void {
     ?>
       <section class="page-hero">
         <div>
@@ -37,15 +44,15 @@ $page->render(function (): void {
         <form class="contact-form">
           <label>
             Meno a priezvisko
-            <input type="text" name="name" placeholder="Ján Novák" required />
+            <input type="text" name="name" placeholder="Ján Novák" value="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>" required />
           </label>
           <label>
             Email
-            <input type="email" name="email" placeholder="vas@email.sk" required />
+            <input type="email" name="email" placeholder="vas@email.sk" value="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>" required />
           </label>
           <label>
             Telefón
-            <input type="tel" name="phone" placeholder="+421 900 000 000" required />
+            <input type="tel" name="phone" placeholder="+421 900 000 000" value="<?= htmlspecialchars($phone, ENT_QUOTES, 'UTF-8') ?>" required />
           </label>
           <label>
             Správa
