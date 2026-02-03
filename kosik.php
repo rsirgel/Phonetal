@@ -2,6 +2,7 @@
 require_once __DIR__ . '/models/Page.php';
 require_once __DIR__ . '/models/Auth.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/mail_app/odoslat_notifikacie.php';
 
 $page = new Page(
     'Phonetal | Nákupný košík ',
@@ -146,6 +147,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
                     (float) $totalPrice,
                     $items
                 );
+
+                sendRentalStartEmail([
+                    'email' => (string) ($user['email'] ?? ''),
+                    'name' => $fullName,
+                    'rental_id' => (int) $rentalId,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'rental_days' => (int) $selectedDays,
+                    'delivery_days' => 1,
+                ]);
 
                 $orderComplete = true;
                 $orderMessage = 'Prenájom bol úspešne uložený. Číslo objednávky: #' . $rentalId . '.';
