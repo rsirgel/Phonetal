@@ -285,6 +285,43 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
         </section>
 
         <section class="device-detail-hero">
+          <div class="device-gallery" data-device-gallery>
+            <?php $firstImage = $device['gallery'][0] ?? null; ?>
+            <?php if ($firstImage): ?>
+              <figure>
+                <img
+                  data-device-gallery-image
+                  src="<?= htmlspecialchars($firstImage['src'], ENT_QUOTES, 'UTF-8') ?>"
+                  alt="<?= htmlspecialchars($firstImage['alt'], ENT_QUOTES, 'UTF-8') ?>"
+                />
+                <figcaption data-device-gallery-caption>
+                  <?= htmlspecialchars($firstImage['caption'], ENT_QUOTES, 'UTF-8') ?>
+                </figcaption>
+              </figure>
+              <div class="device-gallery-controls">
+                <button type="button" class="gallery-arrow" data-gallery-direction="prev" aria-label="Predchádzajúca fotografia">
+                  ‹
+                </button>
+                <div class="device-gallery-dots" role="tablist" aria-label="Fotogaléria zariadenia">
+                  <?php foreach ($device['gallery'] as $index => $image): ?>
+                    <button
+                      type="button"
+                      class="gallery-dot"
+                      data-gallery-index="<?= (int) $index ?>"
+                      data-gallery-src="<?= htmlspecialchars($image['src'], ENT_QUOTES, 'UTF-8') ?>"
+                      data-gallery-alt="<?= htmlspecialchars($image['alt'], ENT_QUOTES, 'UTF-8') ?>"
+                      data-gallery-caption="<?= htmlspecialchars($image['caption'], ENT_QUOTES, 'UTF-8') ?>"
+                      aria-label="Zobraziť fotografiu <?= (int) $index + 1 ?>"
+                      aria-current="<?= $index === 0 ? 'true' : 'false' ?>"
+                    ></button>
+                  <?php endforeach; ?>
+                </div>
+                <button type="button" class="gallery-arrow" data-gallery-direction="next" aria-label="Nasledujúca fotografia">
+                  ›
+                </button>
+              </div>
+            <?php endif; ?>
+          </div>
           <div>
             <p class="eyebrow"><?= htmlspecialchars(ucfirst($device['type']), ENT_QUOTES, 'UTF-8') ?></p>
             <h2><?= htmlspecialchars($device['name'], ENT_QUOTES, 'UTF-8') ?></h2>
@@ -299,15 +336,6 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
                 <li><?= htmlspecialchars($highlight, ENT_QUOTES, 'UTF-8') ?></li>
               <?php endforeach; ?>
             </ul>
-          </div>
-          <div class="device-gallery">
-            <?php foreach ($device['gallery'] as $image): ?>
-              <figure>
-                <img src="<?= htmlspecialchars($image['src'], ENT_QUOTES, 'UTF-8') ?>"
-                     alt="<?= htmlspecialchars($image['alt'], ENT_QUOTES, 'UTF-8') ?>" />
-                <figcaption><?= htmlspecialchars($image['caption'], ENT_QUOTES, 'UTF-8') ?></figcaption>
-              </figure>
-            <?php endforeach; ?>
           </div>
         </section>
         <section class="section device-detail-grid">
@@ -344,6 +372,63 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
             <?php endforeach; ?>
           </div>
         </section>
+        <script>
+          (() => {
+            const gallery = document.querySelector('[data-device-gallery]');
+            if (!gallery) {
+              return;
+            }
+
+            const imageElement = gallery.querySelector('[data-device-gallery-image]');
+            const captionElement = gallery.querySelector('[data-device-gallery-caption]');
+            const dots = Array.from(gallery.querySelectorAll('[data-gallery-index]'));
+            if (!imageElement || dots.length === 0 || !captionElement) {
+              return;
+            }
+
+            const images = dots.map((dot) => ({
+              src: dot.dataset.gallerySrc,
+              alt: dot.dataset.galleryAlt,
+              caption: dot.dataset.galleryCaption,
+            }));
+
+            let currentIndex = Math.max(
+              0,
+              dots.findIndex((dot) => dot.getAttribute('aria-current') === 'true')
+            );
+
+            const setActive = (index) => {
+              const data = images[index];
+              if (!data) {
+                return;
+              }
+              imageElement.src = data.src;
+              imageElement.alt = data.alt;
+              captionElement.textContent = data.caption;
+              dots.forEach((dot, dotIndex) => {
+                dot.setAttribute('aria-current', dotIndex === index ? 'true' : 'false');
+              });
+              currentIndex = index;
+            };
+
+            const step = (direction) => {
+              const nextIndex = (currentIndex + direction + images.length) % images.length;
+              setActive(nextIndex);
+            };
+
+            gallery.addEventListener('click', (event) => {
+              const dotButton = event.target.closest('[data-gallery-index]');
+              if (dotButton) {
+                setActive(Number(dotButton.dataset.galleryIndex));
+                return;
+              }
+              const arrowButton = event.target.closest('[data-gallery-direction]');
+              if (arrowButton) {
+                step(arrowButton.dataset.galleryDirection === 'next' ? 1 : -1);
+              }
+            });
+          })();
+        </script>
       <?php endif; ?>
     <?php
 });
