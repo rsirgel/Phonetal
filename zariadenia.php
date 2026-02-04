@@ -2,9 +2,32 @@
 require_once __DIR__ . '/models/Page.php';
 require_once __DIR__ . '/models/device-filter.php';
 require_once __DIR__ . '/models/device-card.php';
+require_once __DIR__ . '/models/Auth.php';
 require_once __DIR__ . '/config/database.php';
 
 $deviceId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$reviewNotice = null;
+
+Auth::init();
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $reviewDeviceId = filter_input(INPUT_POST, 'review_device_id', FILTER_VALIDATE_INT);
+    $author = trim((string) filter_input(INPUT_POST, 'review_author', FILTER_DEFAULT));
+    $rating = filter_input(INPUT_POST, 'review_rating', FILTER_VALIDATE_INT);
+    $text = trim((string) filter_input(INPUT_POST, 'review_text', FILTER_DEFAULT));
+
+    if ($reviewDeviceId && $reviewDeviceId === $deviceId) {
+        if ($author === '' || $text === '' || !$rating || $rating < 1 || $rating > 5) {
+            $reviewNotice = 'Vyplňte meno, hodnotenie a text recenzie.';
+        } else {
+            $_SESSION['manual_reviews'][$reviewDeviceId][] = [
+                'author' => $author,
+                'rating' => $rating,
+                'text' => $text,
+            ];
+            $reviewNotice = 'Ďakujeme! Recenzia bola pridaná.';
+        }
+    }
+}
 $pageTitle = $deviceId ? 'Phonetal | Detail zariadenia' : 'Phonetal | Zariadenia na prenájom';
 $pageDescription = $deviceId
     ? 'Detail zariadenia s fotkami, popisom a recenziami.'
@@ -107,6 +130,19 @@ function buildDeviceDetail(array $device): array
     ];
 }
 
+function getManualReviews(int $deviceId): array
+{
+    $reviews = $_SESSION['manual_reviews'][$deviceId] ?? [];
+    if (!is_array($reviews)) {
+        return [];
+    }
+
+    return array_values(array_filter($reviews, static function ($review): bool {
+        return is_array($review)
+            && isset($review['author'], $review['rating'], $review['text']);
+    }));
+}
+
 $fallbackDevices = [
     1 => [
         'id' => 1,
@@ -168,6 +204,7 @@ $selectedFilters = [
 if ($deviceId && isset($fallbackDevices[$deviceId])) {
     $device = $fallbackDevices[$deviceId];
     $device = array_merge($device, buildDeviceDetail($device));
+    $device['reviews'] = array_merge(getManualReviews($deviceId), $device['reviews']);
 }
 
 if ($deviceId) {
@@ -176,6 +213,7 @@ if ($deviceId) {
         $deviceFromDb = $database->fetchDeviceById($deviceId);
         if ($deviceFromDb) {
             $device = array_merge($deviceFromDb, buildDeviceDetail($deviceFromDb));
+            $device['reviews'] = array_merge(getManualReviews($deviceId), $device['reviews']);
         }
     } catch (Throwable $exception) {
         // Fallback data is already set above when available.
@@ -196,7 +234,7 @@ if ($deviceId) {
     }
 }
 
-$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters): void {
+$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters, $reviewNotice): void {
     ?>
       <?php if (!$deviceId): ?>
         <section class="page-hero">
@@ -285,6 +323,43 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
         </section>
 
         <section class="device-detail-hero">
+          <div class="device-gallery" data-device-gallery>
+            <?php $firstImage = $device['gallery'][0] ?? null; ?>
+            <?php if ($firstImage): ?>
+              <figure>
+                <img
+                  data-device-gallery-image
+                  src="<?= htmlspecialchars($firstImage['src'], ENT_QUOTES, 'UTF-8') ?>"
+                  alt="<?= htmlspecialchars($firstImage['alt'], ENT_QUOTES, 'UTF-8') ?>"
+                />
+                <figcaption data-device-gallery-caption>
+                  <?= htmlspecialchars($firstImage['caption'], ENT_QUOTES, 'UTF-8') ?>
+                </figcaption>
+              </figure>
+              <div class="device-gallery-controls">
+                <button type="button" class="gallery-arrow" data-gallery-direction="prev" aria-label="Predchádzajúca fotografia">
+                  ‹
+                </button>
+                <div class="device-gallery-dots" role="tablist" aria-label="Fotogaléria zariadenia">
+                  <?php foreach ($device['gallery'] as $index => $image): ?>
+                    <button
+                      type="button"
+                      class="gallery-dot"
+                      data-gallery-index="<?= (int) $index ?>"
+                      data-gallery-src="<?= htmlspecialchars($image['src'], ENT_QUOTES, 'UTF-8') ?>"
+                      data-gallery-alt="<?= htmlspecialchars($image['alt'], ENT_QUOTES, 'UTF-8') ?>"
+                      data-gallery-caption="<?= htmlspecialchars($image['caption'], ENT_QUOTES, 'UTF-8') ?>"
+                      aria-label="Zobraziť fotografiu <?= (int) $index + 1 ?>"
+                      aria-current="<?= $index === 0 ? 'true' : 'false' ?>"
+                    ></button>
+                  <?php endforeach; ?>
+                </div>
+                <button type="button" class="gallery-arrow" data-gallery-direction="next" aria-label="Nasledujúca fotografia">
+                  ›
+                </button>
+              </div>
+            <?php endif; ?>
+          </div>
           <div>
             <p class="eyebrow"><?= htmlspecialchars(ucfirst($device['type']), ENT_QUOTES, 'UTF-8') ?></p>
             <h2><?= htmlspecialchars($device['name'], ENT_QUOTES, 'UTF-8') ?></h2>
@@ -299,15 +374,6 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
                 <li><?= htmlspecialchars($highlight, ENT_QUOTES, 'UTF-8') ?></li>
               <?php endforeach; ?>
             </ul>
-          </div>
-          <div class="device-gallery">
-            <?php foreach ($device['gallery'] as $image): ?>
-              <figure>
-                <img src="<?= htmlspecialchars($image['src'], ENT_QUOTES, 'UTF-8') ?>"
-                     alt="<?= htmlspecialchars($image['alt'], ENT_QUOTES, 'UTF-8') ?>" />
-                <figcaption><?= htmlspecialchars($image['caption'], ENT_QUOTES, 'UTF-8') ?></figcaption>
-              </figure>
-            <?php endforeach; ?>
           </div>
         </section>
         <section class="section device-detail-grid">
@@ -332,6 +398,30 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
             <h2>Recenzie</h2>
             <p>Skúsenosti klientov s prenájmom tohto zariadenia.</p>
           </div>
+          <form class="review-form" method="post">
+            <input type="hidden" name="review_device_id" value="<?= (int) $device['id'] ?>" />
+            <label>
+              Vaše meno
+              <input type="text" name="review_author" placeholder="Napr. Jana K." required />
+            </label>
+            <label>
+              Hodnotenie
+              <select name="review_rating" required>
+                <option value="">Vyberte hodnotenie</option>
+                <?php for ($rating = 5; $rating >= 1; $rating--): ?>
+                  <option value="<?= $rating ?>"><?= $rating ?> ★</option>
+                <?php endfor; ?>
+              </select>
+            </label>
+            <label class="review-text">
+              Recenzia
+              <textarea name="review_text" rows="4" placeholder="Podeľte sa o skúsenosti..." required></textarea>
+            </label>
+            <button class="primary-button" type="submit">Pridať recenziu</button>
+            <?php if ($reviewNotice): ?>
+              <p class="form-message"><?= htmlspecialchars($reviewNotice, ENT_QUOTES, 'UTF-8') ?></p>
+            <?php endif; ?>
+          </form>
           <div class="review-list">
             <?php foreach ($device['reviews'] as $review): ?>
               <article class="review-card">
@@ -344,6 +434,63 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
             <?php endforeach; ?>
           </div>
         </section>
+        <script>
+          (() => {
+            const gallery = document.querySelector('[data-device-gallery]');
+            if (!gallery) {
+              return;
+            }
+
+            const imageElement = gallery.querySelector('[data-device-gallery-image]');
+            const captionElement = gallery.querySelector('[data-device-gallery-caption]');
+            const dots = Array.from(gallery.querySelectorAll('[data-gallery-index]'));
+            if (!imageElement || dots.length === 0 || !captionElement) {
+              return;
+            }
+
+            const images = dots.map((dot) => ({
+              src: dot.dataset.gallerySrc,
+              alt: dot.dataset.galleryAlt,
+              caption: dot.dataset.galleryCaption,
+            }));
+
+            let currentIndex = Math.max(
+              0,
+              dots.findIndex((dot) => dot.getAttribute('aria-current') === 'true')
+            );
+
+            const setActive = (index) => {
+              const data = images[index];
+              if (!data) {
+                return;
+              }
+              imageElement.src = data.src;
+              imageElement.alt = data.alt;
+              captionElement.textContent = data.caption;
+              dots.forEach((dot, dotIndex) => {
+                dot.setAttribute('aria-current', dotIndex === index ? 'true' : 'false');
+              });
+              currentIndex = index;
+            };
+
+            const step = (direction) => {
+              const nextIndex = (currentIndex + direction + images.length) % images.length;
+              setActive(nextIndex);
+            };
+
+            gallery.addEventListener('click', (event) => {
+              const dotButton = event.target.closest('[data-gallery-index]');
+              if (dotButton) {
+                setActive(Number(dotButton.dataset.galleryIndex));
+                return;
+              }
+              const arrowButton = event.target.closest('[data-gallery-direction]');
+              if (arrowButton) {
+                step(arrowButton.dataset.galleryDirection === 'next' ? 1 : -1);
+              }
+            });
+          })();
+        </script>
       <?php endif; ?>
     <?php
 });
