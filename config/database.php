@@ -172,6 +172,15 @@ class Database
         return $rows[0] ?? null;
     }
 
+    public function fetchUsers(): array
+    {
+        return $this->fetchAll(
+            "SELECT id, meno, priezvisko, email, telefon, mesto, rola
+             FROM MA_pouzivatelia
+             ORDER BY priezvisko, meno"
+        );
+    }
+
     public function createDevice(array $payload): int
     {
         $sql = "INSERT INTO MA_zariadenia
