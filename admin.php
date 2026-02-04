@@ -25,6 +25,8 @@ $formData = [
 
 $deviceTypes = ['telefon', 'tablet', 'hodinky', 'sluchadla', 'prislusenstvo'];
 $deviceStatuses = ['dostupne', 'nedostupne'];
+$users = [];
+$usersError = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$isAdmin) {
@@ -79,13 +81,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$database = null;
+if ($isAdmin) {
+    try {
+        $database = new Database();
+        $users = $database->fetchUsers();
+    } catch (Throwable $exception) {
+        $usersError = 'Používateľov sa nepodarilo načítať. Skúste to neskôr.';
+    }
+}
+
 $page = new Page(
     'Phonetal | Admin panel',
     'Administrácia zariadení, prenájmov a používateľov.',
     'admin.php'
 );
 
-$page->render(function () use ($user, $isAdmin, $message, $error, $formData, $deviceTypes, $deviceStatuses): void {
+$page->render(function () use ($user, $isAdmin, $message, $error, $formData, $deviceTypes, $deviceStatuses, $users, $usersError): void {
     ?>
       <section class="section">
         <?php if (!$isAdmin): ?>
@@ -109,9 +121,35 @@ $page->render(function () use ($user, $isAdmin, $message, $error, $formData, $de
             </div>
             <div class="feature-card">
               <h3>Používatelia</h3>
-              <p>Správa účtov a rolí.</p>
+              <p>Správa účtov.</p>
             </div>
           </div>
+          <div class="section-heading">
+            <h2>Čo môžete spravovať</h2>
+            <p>Kontrola prenájmov a schvaľovanie platieb.</p>
+            <p>Správa účtov.</p>
+          </div>
+          <div class="section-heading">
+            <h2>Používatelia v systéme</h2>
+            <p>Prehľad všetkých registrovaných účtov.</p>
+          </div>
+          <?php if ($usersError): ?>
+            <p class="form-message"><?= htmlspecialchars($usersError, ENT_QUOTES, 'UTF-8') ?></p>
+          <?php elseif ($users === []): ?>
+            <p class="form-message">Zatiaľ nie sú registrovaní žiadni používatelia.</p>
+          <?php else: ?>
+            <div class="feature-grid">
+              <?php foreach ($users as $userRow): ?>
+                <div class="feature-card">
+                  <h3><?= htmlspecialchars(trim(($userRow['meno'] ?? '') . ' ' . ($userRow['priezvisko'] ?? '')), ENT_QUOTES, 'UTF-8') ?></h3>
+                  <p><?= htmlspecialchars($userRow['email'] ?? '', ENT_QUOTES, 'UTF-8') ?></p>
+                  <p><?= htmlspecialchars($userRow['telefon'] ?? 'Bez telefónu', ENT_QUOTES, 'UTF-8') ?></p>
+                  <p><?= htmlspecialchars($userRow['mesto'] ?? 'Bez mesta', ENT_QUOTES, 'UTF-8') ?></p>
+                  <p><?= htmlspecialchars($userRow['rola'] ?? 'zakaznik', ENT_QUOTES, 'UTF-8') ?></p>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
           <div class="section-heading">
             <h2>Pridať nové zariadenie</h2>
             <p>Vyplňte údaje zariadenia, ktoré chcete zaradiť do ponuky.</p>
