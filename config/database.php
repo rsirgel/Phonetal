@@ -290,28 +290,30 @@ class Database
             $rentalId = $statement->insert_id;
             $statement->close();
 
-            $itemStatement = $this->conn->prepare(
-                "INSERT INTO MA_polozky_prenajmu (prenajom_id, zariadenie_id, cena_za_den)
-                 VALUES (?, ?, ?)"
-            );
-            if ($itemStatement === false) {
-                throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
-            }
-
-            foreach ($items as $item) {
-                $deviceId = (int) $item['device_id'];
-                $pricePerDay = (float) $item['price_per_day'];
-                $itemStatement->bind_param('iid', $rentalId, $deviceId, $pricePerDay);
-                $itemStatement->execute();
-
-                if ($itemStatement->errno) {
-                    $error = $itemStatement->error;
-                    $itemStatement->close();
-                    throw new \RuntimeException('SQL chyba: ' . $error);
+            if ($this->tableExists('MA_polozky_prenajmu')) {
+                $itemStatement = $this->conn->prepare(
+                    "INSERT INTO MA_polozky_prenajmu (prenajom_id, zariadenie_id, cena_za_den)
+                     VALUES (?, ?, ?)"
+                );
+                if ($itemStatement === false) {
+                    throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
                 }
-            }
 
-            $itemStatement->close();
+                foreach ($items as $item) {
+                    $deviceId = (int) $item['device_id'];
+                    $pricePerDay = (float) $item['price_per_day'];
+                    $itemStatement->bind_param('iid', $rentalId, $deviceId, $pricePerDay);
+                    $itemStatement->execute();
+
+                    if ($itemStatement->errno) {
+                        $error = $itemStatement->error;
+                        $itemStatement->close();
+                        throw new \RuntimeException('SQL chyba: ' . $error);
+                    }
+                }
+
+                $itemStatement->close();
+            }
             $this->updateDeviceAvailability(array_column($items, 'device_id'), 'nedostupne');
 
             $this->conn->commit();
@@ -362,25 +364,19 @@ class Database
     private function updateDeviceAvailability(array $deviceIds, string $status): void
     {
         $deviceIds = array_values(array_unique(array_map('intval', $deviceIds)));
-        $deviceIds = array_values(array_unique(array_filter($deviceIds, 'is_numeric')));
+        $deviceIds = array_values(array_filter($deviceIds, static fn(int $id): bool => $id > 0));
         if ($deviceIds === []) {
             return;
         }
 
-        $placeholders = implode(', ', array_fill(0, count($deviceIds), '?'));
-        $sql = "UPDATE MA_zariadenia SET stav = ? WHERE id IN ({$placeholders})";
-        $params = [];
+        $params = [$status];
         $clause = $this->buildInClause('id', $deviceIds, $params);
-
         $sql = "UPDATE MA_zariadenia SET stav = ? WHERE {$clause}";
         $statement = $this->conn->prepare($sql);
         if ($statement === false) {
             throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
         }
 
-        $params = array_merge([$status], $deviceIds);
-        $types = 's' . str_repeat('i', count($deviceIds));
-        $params = array_merge([$status], $params);
         $types = $this->buildParamTypes($params);
         $bindParams = [$types];
         foreach ($params as $index => $value) {
@@ -404,6 +400,13 @@ class Database
             "SELECT DISTINCT {$column} FROM MA_zariadenia WHERE {$column} IS NOT NULL ORDER BY {$column}"
         );
         return array_values(array_filter(array_column($rows, $column)));
+    }
+
+    private function tableExists(string $tableName): bool
+    {
+        $sql = "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? LIMIT 1";
+        $rows = $this->fetchAll($sql, [$this->dbname, $tableName]);
+        return $rows !== [];
     }
 
     private function buildInClause(string $column, array $values, array &$params): string

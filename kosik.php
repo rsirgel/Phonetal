@@ -80,6 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
     if ($unavailableDevices !== []) {
         $orderErrors[] = 'Niektoré vybrané zariadenia už nie sú dostupné.';
     }
+    if ($selectedDevices === []) {
+        $orderErrors[] = 'Vybrané zariadenie sa nepodarilo načítať. Skúste to prosím znova.';
+    } elseif (count($selectedDevices) !== count($deviceIds)) {
+        $orderErrors[] = 'Niektoré vybrané zariadenia sa nepodarilo načítať. Skúste to prosím znova.';
+    }
 
     if ($orderErrors === []) {
         if (!$user || empty($user['id'])) {
@@ -93,6 +98,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
         $street = trim((string) filter_input(INPUT_POST, 'street', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
         $city = trim((string) filter_input(INPUT_POST, 'city', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
         $postalCode = trim((string) filter_input(INPUT_POST, 'postal_code', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
+        $postalCodeDigits = preg_replace('/\D+/', '', $postalCode ?? '');
+        $postalCodeNormalized = null;
+        if ($postalCodeDigits !== '') {
+            if (strlen($postalCodeDigits) !== 5) {
+                $orderErrors[] = 'PSČ musí mať 5 číslic.';
+            } else {
+                $postalCodeNormalized = $postalCodeDigits;
+            }
+        }
 
         $userUpdates = [];
         if ($phone !== '') {
@@ -104,39 +118,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
         if ($city !== '') {
             $userUpdates['mesto'] = $city;
         }
-        if ($postalCode !== '') {
-            $userUpdates['psc'] = $postalCode;
+        if ($postalCodeNormalized !== null) {
+            $userUpdates['psc'] = $postalCodeNormalized;
         }
 
-        $items = [];
-        foreach ($selectedDevices as $device) {
-            $items[] = [
-                'device_id' => (int) $device['id'],
-                'price_per_day' => (float) ($device['price_per_day'] ?? 0.0),
-            ];
-        }
-
-        try {
-            $database = new Database();
-            if ($user && $userUpdates !== []) {
-                $database->updateUserFields((int) $user['id'], $userUpdates);
+        if ($orderErrors === []) {
+            $items = [];
+            foreach ($selectedDevices as $device) {
+                $items[] = [
+                    'device_id' => (int) $device['id'],
+                    'price_per_day' => (float) ($device['price_per_day'] ?? 0.0),
+                ];
             }
 
-            $startDate = new DateTimeImmutable('today');
-            $endDate = $startDate->modify('+' . $selectedDays . ' days');
-            $rentalId = $database->createRental(
-                (int) $user['id'],
-                $startDate->format('Y-m-d'),
-                $endDate->format('Y-m-d'),
-                (float) $totalPrice,
-                $items
-            );
+            try {
+                $database = new Database();
+                if ($user && $userUpdates !== []) {
+                    $database->updateUserFields((int) $user['id'], $userUpdates);
+                }
 
-            $orderComplete = true;
-            $orderMessage = 'Prenájom bol úspešne uložený. Číslo objednávky: #' . $rentalId . '.';
-        } catch (Throwable $exception) {
-            error_log('Prenajom sa nepodarilo ulozit: ' . $exception->getMessage());
-            $orderErrors[] = 'Prenájom sa nepodarilo uložiť. Skúste to prosím neskôr.';
+                $startDate = new DateTimeImmutable('today');
+                $endDate = $startDate->modify('+' . $selectedDays . ' days');
+                $rentalId = $database->createRental(
+                    (int) $user['id'],
+                    $startDate->format('Y-m-d'),
+                    $endDate->format('Y-m-d'),
+                    (float) $totalPrice,
+                    $items
+                );
+
+                $orderComplete = true;
+                $orderMessage = 'Prenájom bol úspešne uložený. Číslo objednávky: #' . $rentalId . '.';
+            } catch (Throwable $exception) {
+                $errorReference = bin2hex(random_bytes(4));
+                error_log(
+                    sprintf(
+                        'Prenajom sa nepodarilo ulozit (%s): %s',
+                        $errorReference,
+                        $exception->getMessage()
+                    )
+                );
+                $orderErrors[] = 'Prenájom sa nepodarilo uložiť. Skúste to prosím neskôr. Kód: ' . $errorReference . '.';
+                if (Auth::isAdmin()) {
+                    $orderErrors[] = 'Detail chyby: ' . $exception->getMessage();
+                }
+            }
         }
     }
 }
