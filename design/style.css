@@ -233,7 +233,6 @@ main {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin: 0.75rem 0 1.5rem;
 }
 
 .gallery-arrow {
@@ -272,37 +271,6 @@ main {
 .gallery-dot[aria-current="true"] {
   background: var(--green);
   border-color: var(--green);
-}
-
-.review-form {
-  display: grid;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  max-width: 640px;
-}
-
-.review-form label {
-  display: grid;
-  gap: 0.4rem;
-  font-size: 0.95rem;
-}
-
-.review-form input[type="text"],
-.review-form select,
-.review-form textarea {
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  border: 1px solid #e0e0e0;
-  font-size: 1rem;
-  font-family: inherit;
-}
-
-.review-form textarea {
-  resize: vertical;
-}
-
-.review-form .form-message {
-  margin: 0;
 }
 
 .section {

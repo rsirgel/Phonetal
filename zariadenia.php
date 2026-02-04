@@ -398,30 +398,6 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
             <h2>Recenzie</h2>
             <p>Skúsenosti klientov s prenájmom tohto zariadenia.</p>
           </div>
-          <form class="review-form" method="post">
-            <input type="hidden" name="review_device_id" value="<?= (int) $device['id'] ?>" />
-            <label>
-              Vaše meno
-              <input type="text" name="review_author" placeholder="Napr. Jana K." required />
-            </label>
-            <label>
-              Hodnotenie
-              <select name="review_rating" required>
-                <option value="">Vyberte hodnotenie</option>
-                <?php for ($rating = 5; $rating >= 1; $rating--): ?>
-                  <option value="<?= $rating ?>"><?= $rating ?> ★</option>
-                <?php endfor; ?>
-              </select>
-            </label>
-            <label class="review-text">
-              Recenzia
-              <textarea name="review_text" rows="4" placeholder="Podeľte sa o skúsenosti..." required></textarea>
-            </label>
-            <button class="primary-button" type="submit">Pridať recenziu</button>
-            <?php if ($reviewNotice): ?>
-              <p class="form-message"><?= htmlspecialchars($reviewNotice, ENT_QUOTES, 'UTF-8') ?></p>
-            <?php endif; ?>
-          </form>
           <div class="review-list">
             <?php foreach ($device['reviews'] as $review): ?>
               <article class="review-card">
