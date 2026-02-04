@@ -3,6 +3,105 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 require __DIR__ . '/../mail_app/vendor/autoload.php';
+
+function sendRentalStartEmail(array $payload): bool
+{
+    $email = (string) ($payload['email'] ?? '');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $name = (string) ($payload['name'] ?? '');
+    $rentalId = (int) ($payload['rental_id'] ?? 0);
+    $startDate = $payload['start_date'] ?? null;
+    $endDate = $payload['end_date'] ?? null;
+    $rentalDays = (int) ($payload['rental_days'] ?? 0);
+    $deliveryDays = (int) ($payload['delivery_days'] ?? 1);
+
+    $startLabel = $startDate instanceof DateTimeInterface ? $startDate->format('d.m.Y') : '';
+    $endLabel = $endDate instanceof DateTimeInterface ? $endDate->format('d.m.Y') : '';
+    $deliveryLabel = $deliveryDays === 1 ? 'dňa' : 'dní';
+
+    $mailFrom = getenv('MAIL_FROM_ADDRESS') ?: (getenv('PHONETAL_MAIL_FROM') ?: 'info@phonetal.sk');
+    $mailFromName = getenv('MAIL_FROM_NAME') ?: (getenv('PHONETAL_MAIL_FROM_NAME') ?: 'Phonetal');
+    $mailMailer = strtolower((string) (getenv('MAIL_MAILER') ?: 'smtp'));
+    $smtpHost = (string) (getenv('MAIL_HOST') ?: '');
+    $smtpUser = (string) (getenv('MAIL_USERNAME') ?: '');
+    $smtpPass = (string) (getenv('MAIL_PASSWORD') ?: '');
+    $smtpPort = (int) (getenv('MAIL_PORT') ?: 587);
+    $enc = strtolower(trim((string) (getenv('MAIL_ENCRYPTION') ?: 'tls')));
+    if ($enc === 'tls' || $enc === 'starttls') {
+        $smtpSecure = PHPMailer::ENCRYPTION_STARTTLS;
+    } elseif ($enc === 'ssl' || $enc === 'smtps') {
+        $smtpSecure = PHPMailer::ENCRYPTION_SMTPS;
+    } else {
+        $smtpSecure = '';
+    }
+
+    $subject = 'Dakujeme za prenajom #' . $rentalId;
+    $body =
+        '<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a37;">'
+        . '<h2 style="margin: 0 0 12px;">Dakujeme za prenajom</h2>'
+        . '<p>Dobrý deň ' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . ',</p>'
+        . '<p>Váš prenájom (#' . htmlspecialchars((string) $rentalId, ENT_QUOTES, 'UTF-8') . ') bol úspešne vytvorený.</p>'
+        . '<p>Vaše zariadenie bude doručené do <strong>' . $deliveryDays . ' ' . $deliveryLabel . '</strong>.</p>'
+        . '<p>Prenájom trvá <strong>' . $rentalDays . ' dní</strong> (od ' . htmlspecialchars($startLabel, ENT_QUOTES, 'UTF-8') . ' do ' . htmlspecialchars($endLabel, ENT_QUOTES, 'UTF-8') . ').</p>'
+        . '<p>Ak máte otázky, ozvite sa nám na ' . htmlspecialchars($mailFrom, ENT_QUOTES, 'UTF-8') . '.</p>'
+        . '<p style="margin-top: 24px;">Ďakujeme,<br>Tím ' . htmlspecialchars($mailFromName, ENT_QUOTES, 'UTF-8') . '</p>'
+        . '</div>';
+
+    $altBody =
+        "Dakujeme za prenajom\n\n"
+        . "Dobrý deň {$name},\n"
+        . "Váš prenájom (#{$rentalId}) bol úspešne vytvorený.\n"
+        . "Vaše zariadenie bude doručené do {$deliveryDays} {$deliveryLabel}.\n"
+        . "Prenájom trvá {$rentalDays} dní (od {$startLabel} do {$endLabel}).\n\n"
+        . "Ak máte otázky, ozvite sa nám na {$mailFrom}.\n\n"
+        . "Ďakujeme,\nTím {$mailFromName}\n";
+
+    $mail = new PHPMailer(true);
+
+    try {
+        $mail->CharSet = 'UTF-8';
+        if ($mailMailer === 'smtp' && $smtpHost !== '') {
+            $mail->isSMTP();
+            $mail->Host = $smtpHost;
+            $mail->SMTPAuth = true;
+            $mail->Username = $smtpUser;
+            $mail->Password = $smtpPass;
+            if ($smtpSecure !== '') {
+                $mail->SMTPSecure = $smtpSecure;
+            }
+            $mail->Port = $smtpPort;
+        } else {
+            $mail->isMail();
+        }
+
+        $mail->setFrom($mailFrom, $mailFromName);
+        $mail->addAddress($email, $name);
+        $mail->Subject = $subject;
+        $mail->isHTML(true);
+        $mail->Body = $body;
+        $mail->AltBody = $altBody;
+        $mail->send();
+    } catch (Exception $exception) {
+        error_log(
+            sprintf(
+                'Nepodarilo sa odoslat email o zaciatku prenajmu #%s: %s',
+                $rentalId,
+                $exception->getMessage()
+            )
+        );
+        return false;
+    }
+
+    return true;
+}
+
+if (basename(__FILE__) !== basename((string) ($_SERVER['SCRIPT_FILENAME'] ?? ''))) {
+    return;
+}
+
 require __DIR__ . '/../config/database.php';
 
 // koľko dní pred koncom prenájmu posielať notifikácie
