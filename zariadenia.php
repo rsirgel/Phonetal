@@ -2,9 +2,32 @@
 require_once __DIR__ . '/models/Page.php';
 require_once __DIR__ . '/models/device-filter.php';
 require_once __DIR__ . '/models/device-card.php';
+require_once __DIR__ . '/models/Auth.php';
 require_once __DIR__ . '/config/database.php';
 
 $deviceId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$reviewNotice = null;
+
+Auth::init();
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $reviewDeviceId = filter_input(INPUT_POST, 'review_device_id', FILTER_VALIDATE_INT);
+    $author = trim((string) filter_input(INPUT_POST, 'review_author', FILTER_DEFAULT));
+    $rating = filter_input(INPUT_POST, 'review_rating', FILTER_VALIDATE_INT);
+    $text = trim((string) filter_input(INPUT_POST, 'review_text', FILTER_DEFAULT));
+
+    if ($reviewDeviceId && $reviewDeviceId === $deviceId) {
+        if ($author === '' || $text === '' || !$rating || $rating < 1 || $rating > 5) {
+            $reviewNotice = 'Vyplňte meno, hodnotenie a text recenzie.';
+        } else {
+            $_SESSION['manual_reviews'][$reviewDeviceId][] = [
+                'author' => $author,
+                'rating' => $rating,
+                'text' => $text,
+            ];
+            $reviewNotice = 'Ďakujeme! Recenzia bola pridaná.';
+        }
+    }
+}
 $pageTitle = $deviceId ? 'Phonetal | Detail zariadenia' : 'Phonetal | Zariadenia na prenájom';
 $pageDescription = $deviceId
     ? 'Detail zariadenia s fotkami, popisom a recenziami.'
@@ -107,6 +130,19 @@ function buildDeviceDetail(array $device): array
     ];
 }
 
+function getManualReviews(int $deviceId): array
+{
+    $reviews = $_SESSION['manual_reviews'][$deviceId] ?? [];
+    if (!is_array($reviews)) {
+        return [];
+    }
+
+    return array_values(array_filter($reviews, static function ($review): bool {
+        return is_array($review)
+            && isset($review['author'], $review['rating'], $review['text']);
+    }));
+}
+
 $fallbackDevices = [
     1 => [
         'id' => 1,
@@ -168,6 +204,7 @@ $selectedFilters = [
 if ($deviceId && isset($fallbackDevices[$deviceId])) {
     $device = $fallbackDevices[$deviceId];
     $device = array_merge($device, buildDeviceDetail($device));
+    $device['reviews'] = array_merge(getManualReviews($deviceId), $device['reviews']);
 }
 
 if ($deviceId) {
@@ -176,6 +213,7 @@ if ($deviceId) {
         $deviceFromDb = $database->fetchDeviceById($deviceId);
         if ($deviceFromDb) {
             $device = array_merge($deviceFromDb, buildDeviceDetail($deviceFromDb));
+            $device['reviews'] = array_merge(getManualReviews($deviceId), $device['reviews']);
         }
     } catch (Throwable $exception) {
         // Fallback data is already set above when available.
@@ -196,7 +234,7 @@ if ($deviceId) {
     }
 }
 
-$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters): void {
+$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters, $reviewNotice): void {
     ?>
       <?php if (!$deviceId): ?>
         <section class="page-hero">
