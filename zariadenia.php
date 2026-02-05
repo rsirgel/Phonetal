@@ -2,6 +2,7 @@
 require_once __DIR__ . '/models/Page.php';
 require_once __DIR__ . '/models/device-filter.php';
 require_once __DIR__ . '/models/device-card.php';
+require_once __DIR__ . '/models/Auth.php';
 require_once __DIR__ . '/config/database.php';
 
 $deviceId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -17,6 +18,15 @@ $page = new Page(
 );
 
 $deviceId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+
+Auth::init();
+$currentUser = Auth::user();
+$reviewNotice = null;
+$reviewErrors = [];
+$reviewForm = [
+    'rating' => '',
+    'comment' => '',
+];
 
 function buildDeviceImage(string $title, string $subtitle): string
 {
@@ -59,7 +69,7 @@ function buildDeviceGallery(string $deviceName): array
     ];
 }
 
-function buildDeviceDetail(array $device): array
+function buildDeviceDetail(array $device, ?array $reviews = null): array
 {
     $typeLabel = $device['type'] ?? 'zariadenie';
     $detailParts = [];
@@ -87,7 +97,7 @@ function buildDeviceDetail(array $device): array
             'Cena' => $device['price'],
         ],
         'gallery' => buildDeviceGallery($device['name']),
-        'reviews' => [
+        'reviews' => $reviews ?? [
             [
                 'author' => 'Lucia K.',
                 'rating' => 5,
@@ -167,7 +177,6 @@ $selectedFilters = [
 
 if ($deviceId && isset($fallbackDevices[$deviceId])) {
     $device = $fallbackDevices[$deviceId];
-    $device = array_merge($device, buildDeviceDetail($device));
 }
 
 if ($deviceId) {
@@ -175,7 +184,7 @@ if ($deviceId) {
         $database = new Database();
         $deviceFromDb = $database->fetchDeviceById($deviceId);
         if ($deviceFromDb) {
-            $device = array_merge($deviceFromDb, buildDeviceDetail($deviceFromDb));
+            $device = $deviceFromDb;
         }
     } catch (Throwable $exception) {
         // Fallback data is already set above when available.
@@ -196,7 +205,68 @@ if ($deviceId) {
     }
 }
 
-$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters): void {
+if ($deviceId && $device) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $action = filter_input(INPUT_POST, 'action', FILTER_UNSAFE_RAW);
+        if ($action === 'add_review') {
+            if (!$currentUser) {
+                $reviewErrors[] = 'Na pridanie recenzie sa prosím prihláste.';
+            }
+
+            $rating = filter_input(
+                INPUT_POST,
+                'rating',
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 1, 'max_range' => 5]]
+            );
+            $comment = trim((string) filter_input(INPUT_POST, 'comment', FILTER_UNSAFE_RAW));
+
+            $reviewForm = [
+                'rating' => $rating ? (string) $rating : '',
+                'comment' => $comment,
+            ];
+
+            if (!$rating) {
+                $reviewErrors[] = 'Vyberte hodnotenie od 1 do 5 hviezdičiek.';
+            }
+
+            if ($comment === '') {
+                $reviewErrors[] = 'Napíšte krátku recenziu k zariadeniu.';
+            }
+
+            if ($reviewErrors === [] && $currentUser) {
+                try {
+                    $database = new Database();
+                    $database->createReview(
+                        (int) $currentUser['id'],
+                        (int) $deviceId,
+                        (int) $rating,
+                        mb_substr($comment, 0, 1000)
+                    );
+                    header('Location: zariadenia.php?id=' . (int) $deviceId . '&review=success');
+                    exit;
+                } catch (Throwable $exception) {
+                    $reviewErrors[] = 'Recenziu sa nepodarilo uložiť. Skúste to prosím neskôr.';
+                }
+            }
+        }
+    }
+
+    try {
+        $database = new Database();
+        $reviewsFromDb = $database->fetchReviewsByDeviceId((int) $deviceId);
+    } catch (Throwable $exception) {
+        $reviewsFromDb = null;
+    }
+
+    $device = array_merge($device, buildDeviceDetail($device, $reviewsFromDb));
+
+    if (filter_input(INPUT_GET, 'review', FILTER_UNSAFE_RAW) === 'success') {
+        $reviewNotice = 'Ďakujeme, recenzia bola uložená.';
+    }
+}
+
+$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters, $reviewNotice, $reviewErrors, $reviewForm, $currentUser): void {
     ?>
       <?php if (!$deviceId): ?>
         <section class="page-hero">
@@ -360,16 +430,70 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
             <h2>Recenzie</h2>
             <p>Skúsenosti klientov s prenájmom tohto zariadenia.</p>
           </div>
+          <?php if ($reviewNotice): ?>
+            <div class="review-feedback review-feedback-success">
+              <?= htmlspecialchars($reviewNotice, ENT_QUOTES, 'UTF-8') ?>
+            </div>
+          <?php endif; ?>
+          <?php if ($reviewErrors): ?>
+            <div class="review-feedback review-feedback-error">
+              <ul>
+                <?php foreach ($reviewErrors as $error): ?>
+                  <li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></li>
+                <?php endforeach; ?>
+              </ul>
+            </div>
+          <?php endif; ?>
           <div class="review-list">
-            <?php foreach ($device['reviews'] as $review): ?>
-              <article class="review-card">
-                <div class="review-rating">
-                  <?= str_repeat('★', (int) $review['rating']) ?><?= str_repeat('☆', 5 - (int) $review['rating']) ?>
-                </div>
-                <strong><?= htmlspecialchars($review['author'], ENT_QUOTES, 'UTF-8') ?></strong>
-                <p><?= htmlspecialchars($review['text'], ENT_QUOTES, 'UTF-8') ?></p>
-              </article>
-            <?php endforeach; ?>
+            <?php if (!empty($device['reviews'])): ?>
+              <?php foreach ($device['reviews'] as $review): ?>
+                <article class="review-card">
+                  <div class="review-rating">
+                    <?= str_repeat('★', (int) $review['rating']) ?><?= str_repeat('☆', 5 - (int) $review['rating']) ?>
+                  </div>
+                  <div class="review-meta">
+                    <strong><?= htmlspecialchars($review['author'], ENT_QUOTES, 'UTF-8') ?></strong>
+                    <?php if (!empty($review['date'])): ?>
+                      <span><?= htmlspecialchars(date('d.m.Y', strtotime($review['date'])), ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php endif; ?>
+                  </div>
+                  <p><?= htmlspecialchars($review['text'], ENT_QUOTES, 'UTF-8') ?></p>
+                </article>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <div class="review-empty">
+                Zatiaľ bez recenzií. Buďte prvý, kto sa podelí o skúsenosť.
+              </div>
+            <?php endif; ?>
+          </div>
+          <div class="review-form-wrapper">
+            <?php if ($currentUser): ?>
+              <h3>Pridajte vlastnú recenziu</h3>
+              <form class="review-form" method="post">
+                <input type="hidden" name="action" value="add_review">
+                <label>
+                  Hodnotenie
+                  <select name="rating" required>
+                    <option value="">Vyberte hodnotenie</option>
+                    <?php for ($rating = 5; $rating >= 1; $rating--): ?>
+                      <option value="<?= $rating ?>" <?= $reviewForm['rating'] === (string) $rating ? 'selected' : '' ?>>
+                        <?= $rating ?> / 5
+                      </option>
+                    <?php endfor; ?>
+                  </select>
+                </label>
+                <label>
+                  Vaša recenzia
+                  <textarea name="comment" rows="4" required><?= htmlspecialchars($reviewForm['comment'], ENT_QUOTES, 'UTF-8') ?></textarea>
+                </label>
+                <button class="primary-button" type="submit">Odoslať recenziu</button>
+              </form>
+            <?php else: ?>
+              <div class="review-login-hint">
+                Na pridanie recenzie je potrebné prihlásenie.
+                <a href="login.php">Prihlásiť sa</a>
+              </div>
+            <?php endif; ?>
           </div>
         </section>
         <script>
