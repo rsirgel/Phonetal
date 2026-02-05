@@ -139,6 +139,49 @@ class Database
         ];
     }
 
+    public function fetchReviewsByDeviceId(int $deviceId): array
+    {
+        $sql = "SELECT r.hodnotenie,
+                       r.komentar,
+                       r.datum,
+                       CONCAT(u.meno, ' ', u.priezvisko) AS autor
+                FROM MA_recenzie r
+                JOIN MA_pouzivatelia u ON u.id = r.pouzivatel_id
+                WHERE r.zariadenie_id = ?
+                ORDER BY r.datum DESC";
+        $rows = $this->fetchAll($sql, [$deviceId]);
+
+        return array_map(static function (array $row): array {
+            return [
+                'rating' => (int) $row['hodnotenie'],
+                'text' => $row['komentar'],
+                'author' => $row['autor'],
+                'date' => $row['datum'],
+            ];
+        }, $rows);
+    }
+
+    public function createReview(int $userId, int $deviceId, int $rating, string $comment): void
+    {
+        $sql = "INSERT INTO MA_recenzie (pouzivatel_id, zariadenie_id, hodnotenie, komentar)
+                VALUES (?, ?, ?, ?)";
+        $statement = $this->conn->prepare($sql);
+        if ($statement === false) {
+            throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+        }
+
+        $statement->bind_param('iiis', $userId, $deviceId, $rating, $comment);
+        $statement->execute();
+
+        if ($statement->errno) {
+            $error = $statement->error;
+            $statement->close();
+            throw new \RuntimeException('SQL chyba: ' . $error);
+        }
+
+        $statement->close();
+    }
+
     public function fetchRentEndNotifications(array $daysIntervals): array
     {
         if ($daysIntervals === []) {
