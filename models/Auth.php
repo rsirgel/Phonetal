@@ -7,6 +7,14 @@ class Auth
     public static function init(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
+            $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'secure' => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
             session_start();
         }
     }
@@ -24,6 +32,7 @@ class Auth
             return false;
         }
 
+        session_regenerate_id(true);
         $_SESSION['user'] = [
             'id' => $user['id'],
             'email' => $user['email'],
@@ -66,6 +75,7 @@ class Auth
             'rola' => 'pouzivatel',
         ]);
 
+        session_regenerate_id(true);
         $_SESSION['user'] = [
             'id' => $userId,
             'email' => $email,
@@ -83,7 +93,20 @@ class Auth
     public static function logout(): void
     {
         self::init();
-        unset($_SESSION['user']);
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
+            );
+        }
+        session_destroy();
     }
 
     public static function user(): ?array
@@ -101,5 +124,24 @@ class Auth
     {
         $user = self::user();
         return $user && $user['role'] === 'admin';
+    }
+
+    public static function csrfToken(): string
+    {
+        self::init();
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['csrf_token'];
+    }
+
+    public static function validateCsrf(?string $token): bool
+    {
+        self::init();
+        $sessionToken = $_SESSION['csrf_token'] ?? '';
+        if (!is_string($token) || $token === '' || $sessionToken === '') {
+            return false;
+        }
+        return hash_equals($sessionToken, $token);
     }
 }

@@ -6,21 +6,25 @@ Auth::init();
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $firstName = trim((string) ($_POST['first_name'] ?? ''));
-    $lastName = trim((string) ($_POST['last_name'] ?? ''));
-    $email = trim((string) ($_POST['email'] ?? ''));
-    $password = (string) ($_POST['password'] ?? '');
-
-    if ($firstName && $lastName && $email && $password) {
-        try {
-            Auth::register($firstName, $lastName, $email, $password);
-            header('Location: kosik.php');
-            exit;
-        } catch (Throwable $exception) {
-            $message = 'Registrácia sa nepodarila. Skúste iný email.';
-        }
+    if (!Auth::validateCsrf($_POST['csrf_token'] ?? null)) {
+        $message = 'Neplatný bezpečnostný token. Obnovte stránku a skúste znova.';
     } else {
-        $message = 'Zadajte meno, priezvisko, email a heslo.';
+        $firstName = trim((string) ($_POST['first_name'] ?? ''));
+        $lastName = trim((string) ($_POST['last_name'] ?? ''));
+        $email = trim((string) ($_POST['email'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
+
+        if ($firstName && $lastName && $email && $password) {
+            try {
+                Auth::register($firstName, $lastName, $email, $password);
+                header('Location: kosik.php');
+                exit;
+            } catch (Throwable $exception) {
+                $message = 'Registrácia sa nepodarila. Skúste iný email.';
+            }
+        } else {
+            $message = 'Zadajte meno, priezvisko, email a heslo.';
+        }
     }
 
 }
@@ -58,6 +62,7 @@ $page->render(function () use ($message): void {
           <p class="form-message"><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></p>
         <?php endif; ?>
         <form class="order-form" method="post">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>" />
           <div class="form-grid">
             <label>
               Meno

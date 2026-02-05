@@ -6,6 +6,8 @@ require_once __DIR__ . '/config/database.php';
 Auth::init();
 $user = Auth::user();
 
+header('Content-Type: application/json; charset=utf-8');
+
 if (!$user) {
     http_response_code(401);
     echo json_encode(['error' => 'Neprihlásený používateľ.']);
@@ -15,6 +17,13 @@ if (!$user) {
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['error' => 'Nepovolená metóda.']);
+    exit;
+}
+
+$csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+if (!Auth::validateCsrf($csrfToken)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Neplatný bezpečnostný token.']);
     exit;
 }
 
@@ -66,5 +75,4 @@ if ($field === 'first_name' || $field === 'last_name') {
     $_SESSION['user']['name'] = trim($firstName . ' ' . $lastName);
 }
 
-header('Content-Type: application/json');
 echo json_encode(['success' => true]);
