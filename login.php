@@ -6,15 +6,19 @@ Auth::init();
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim((string) ($_POST['email'] ?? ''));
-    $password = (string) ($_POST['password'] ?? '');
+    if (!Auth::validateCsrf($_POST['csrf_token'] ?? null)) {
+        $message = 'Neplatný bezpečnostný token. Obnovte stránku a skúste znova.';
+    } else {
+        $email = trim((string) ($_POST['email'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
 
-    if (Auth::login($email, $password)) {
-        header('Location: kosik.php');
-        exit;
+        if (Auth::login($email, $password)) {
+            header('Location: kosik.php');
+            exit;
+        }
+
+        $message = 'Nesprávny email alebo heslo. Skúste to znova.';
     }
-
-    $message = 'Nesprávny email alebo heslo. Skúste to znova.';
 }
 
 $page = new Page(
@@ -50,6 +54,7 @@ $page->render(function () use ($message): void {
           <p class="form-message"><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></p>
         <?php endif; ?>
         <form class="order-form" method="post">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>" />
           <div class="form-grid">
             <label>
               Email

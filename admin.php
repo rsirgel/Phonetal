@@ -31,6 +31,8 @@ $usersError = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$isAdmin) {
         $error = 'Na pridanie zariadenia potrebujete admin práva.';
+    } elseif (!Auth::validateCsrf($_POST['csrf_token'] ?? null)) {
+        $error = 'Neplatný bezpečnostný token. Obnovte stránku a skúste znova.';
     } else {
         $formData = [
             'znacka' => trim((string) ($_POST['znacka'] ?? '')),
@@ -155,6 +157,7 @@ $page->render(function () use ($user, $isAdmin, $message, $error, $formData, $de
             <p>Vyplňte údaje zariadenia, ktoré chcete zaradiť do ponuky.</p>
           </div>
           <form class="order-form" method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>" />
             <div class="form-grid">
               <label>
                 Značka

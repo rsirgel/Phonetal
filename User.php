@@ -85,6 +85,7 @@ $page->render(function () use ($user): void {
       <script>
         const profileInputs = document.querySelectorAll('[data-profile-field]');
         const statusLine = document.getElementById('profile-save-status');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
         const setStatus = (message, isError = false) => {
           if (!statusLine) {
@@ -99,7 +100,10 @@ $page->render(function () use ($user): void {
             setStatus('Ukladám...');
             const response = await fetch('update-profile.php', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+              },
               body: JSON.stringify({ field, value }),
             });
             const payload = await response.json();

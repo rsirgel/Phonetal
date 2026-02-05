@@ -29,6 +29,17 @@ class Page
     private function renderHeader(): void
     {
         Auth::init();
+        if (!headers_sent()) {
+            header('X-Content-Type-Options: nosniff');
+            header('X-Frame-Options: DENY');
+            header('Referrer-Policy: strict-origin-when-cross-origin');
+            header('Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()');
+            $csp = "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
+                . "img-src 'self' data:; script-src 'self' 'unsafe-inline'; "
+                . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                . "font-src https://fonts.gstatic.com; connect-src 'self'";
+            header('Content-Security-Policy: ' . $csp);
+        }
         $links = [
             'index.php' => 'Domov',
             'zariadenia.php' => 'Zariadenia',
@@ -53,6 +64,7 @@ class Page
       name="description"
       content="<?= htmlspecialchars($this->description, ENT_QUOTES, 'UTF-8') ?>"
     />
+    <meta name="csrf-token" content="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

@@ -62,6 +62,9 @@ $formattedTotal = $totalPrice > 0
     : '—';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
+    if (!Auth::validateCsrf($_POST['csrf_token'] ?? null)) {
+        $orderErrors[] = 'Neplatný bezpečnostný token. Obnovte stránku a skúste znova.';
+    }
     if ($selectedDays === null) {
         $orderErrors[] = 'Vyberte platnú dobu prenájmu.';
     }
@@ -305,6 +308,7 @@ $page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step,
                   </div>
                 <?php endif; ?>
                 <form class="order-form" method="post" action="kosik.php?step=billing">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>" />
                   <input type="hidden" name="step" value="confirm" />
                   <input type="hidden" name="rental_days" value="<?= (int) $selectedDays ?>" />
                   <?php foreach ($deviceIds as $deviceId): ?>

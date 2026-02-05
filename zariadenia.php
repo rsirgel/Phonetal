@@ -213,40 +213,44 @@ if ($deviceId && $device) {
                 $reviewErrors[] = 'Na pridanie recenzie sa prosím prihláste.';
             }
 
-            $rating = filter_input(
-                INPUT_POST,
-                'rating',
-                FILTER_VALIDATE_INT,
-                ['options' => ['min_range' => 1, 'max_range' => 5]]
-            );
-            $comment = trim((string) filter_input(INPUT_POST, 'comment', FILTER_UNSAFE_RAW));
+            if (!Auth::validateCsrf($_POST['csrf_token'] ?? null)) {
+                $reviewErrors[] = 'Neplatný bezpečnostný token. Obnovte stránku a skúste znova.';
+            } else {
+                $rating = filter_input(
+                    INPUT_POST,
+                    'rating',
+                    FILTER_VALIDATE_INT,
+                    ['options' => ['min_range' => 1, 'max_range' => 5]]
+                );
+                $comment = trim((string) filter_input(INPUT_POST, 'comment', FILTER_UNSAFE_RAW));
 
-            $reviewForm = [
-                'rating' => $rating ? (string) $rating : '',
-                'comment' => $comment,
-            ];
+                $reviewForm = [
+                    'rating' => $rating ? (string) $rating : '',
+                    'comment' => $comment,
+                ];
 
-            if (!$rating) {
-                $reviewErrors[] = 'Vyberte hodnotenie od 1 do 5 hviezdičiek.';
-            }
+                if (!$rating) {
+                    $reviewErrors[] = 'Vyberte hodnotenie od 1 do 5 hviezdičiek.';
+                }
 
-            if ($comment === '') {
-                $reviewErrors[] = 'Napíšte krátku recenziu k zariadeniu.';
-            }
+                if ($comment === '') {
+                    $reviewErrors[] = 'Napíšte krátku recenziu k zariadeniu.';
+                }
 
-            if ($reviewErrors === [] && $currentUser) {
-                try {
-                    $database = new Database();
-                    $database->createReview(
-                        (int) $currentUser['id'],
-                        (int) $deviceId,
-                        (int) $rating,
-                        mb_substr($comment, 0, 1000)
-                    );
-                    header('Location: zariadenia.php?id=' . (int) $deviceId . '&review=success');
-                    exit;
-                } catch (Throwable $exception) {
-                    $reviewErrors[] = 'Recenziu sa nepodarilo uložiť. Skúste to prosím neskôr.';
+                if ($reviewErrors === [] && $currentUser) {
+                    try {
+                        $database = new Database();
+                        $database->createReview(
+                            (int) $currentUser['id'],
+                            (int) $deviceId,
+                            (int) $rating,
+                            mb_substr($comment, 0, 1000)
+                        );
+                        header('Location: zariadenia.php?id=' . (int) $deviceId . '&review=success');
+                        exit;
+                    } catch (Throwable $exception) {
+                        $reviewErrors[] = 'Recenziu sa nepodarilo uložiť. Skúste to prosím neskôr.';
+                    }
                 }
             }
         }
@@ -470,6 +474,7 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
             <?php if ($currentUser): ?>
               <h3>Pridajte vlastnú recenziu</h3>
               <form class="review-form" method="post">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>" />
                 <input type="hidden" name="action" value="add_review">
                 <label>
                   Hodnotenie
