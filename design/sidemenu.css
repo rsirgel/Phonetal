@@ -10,6 +10,7 @@
 }
 
 .filter-panel {
+  background: var(--light-gray);
   border: 1px solid #ededed;
   border-radius: 20px;
   padding: 1.5rem;
@@ -40,11 +41,6 @@
 .device-list {
   display: grid;
   gap: 2.5rem;
-}
-
-.device-group {
-  display: grid;
-  gap: 1.5rem;
 }
 
 @media (max-width: 900px) {

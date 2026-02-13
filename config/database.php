@@ -45,13 +45,49 @@ class Database
     public function fetchSearchSuggestions(string $query): array
     {
         $sql =
-            "SELECT DISTINCT CONCAT(znacka, ' ', model) AS label
+            "SELECT id, CONCAT(znacka, ' ', model) AS label
              FROM MA_zariadenia
-             WHERE znacka LIKE ? OR model LIKE ?
-             ORDER BY znacka, model
+             WHERE CONCAT(znacka, ' ', model) COLLATE utf8_general_ci LIKE ?
+             ORDER BY label
              LIMIT 8";
-        $rows = $this->fetchAll($sql, ['%' . $query . '%', '%' . $query . '%']);
-        return array_column($rows, 'label');
+        $rows = $this->fetchAll($sql, ['%' . $query . '%']);
+        return array_map(static function (array $row): array {
+            return [
+                'id' => (int) $row['id'],
+                'label' => $row['label'],
+            ];
+        }, $rows);
+    }
+
+    public function fetchDeviceCount(): int
+    {
+        $rows = $this->fetchAll("SELECT COUNT(*) AS cnt FROM MA_zariadenia");
+        return (int) ($rows[0]['cnt'] ?? 0);
+    }
+
+    public function fetchDeviceSample(int $limit = 5): array
+    {
+        $limit = max(1, min(20, $limit));
+        $rows = $this->fetchAll(
+            "SELECT znacka, model FROM MA_zariadenia ORDER BY id DESC LIMIT {$limit}"
+        );
+        return array_map(
+            static fn(array $row): string => trim(($row['znacka'] ?? '') . ' ' . ($row['model'] ?? '')),
+            $rows
+        );
+    }
+
+    public function fetchSearchDiagnostics(string $query): array
+    {
+        $pattern = '%' . $query . '%';
+        $sql = "SELECT
+                    (SELECT COUNT(*) FROM MA_zariadenia) AS total,
+                    (SELECT COUNT(*) FROM MA_zariadenia WHERE CONCAT(znacka, ' ', model) LIKE ?) AS match_concat,
+                    (SELECT COUNT(*) FROM MA_zariadenia WHERE znacka LIKE ?) AS match_brand,
+                    (SELECT COUNT(*) FROM MA_zariadenia WHERE model LIKE ?) AS match_model,
+                    (SELECT COUNT(*) FROM MA_zariadenia WHERE CONCAT(znacka, ' ', model) COLLATE utf8_general_ci LIKE ?) AS match_collate";
+        $rows = $this->fetchAll($sql, [$pattern, $pattern, $pattern, $pattern]);
+        return $rows[0] ?? [];
     }
 
     public function fetchFilterOptions(): array
@@ -109,7 +145,7 @@ class Database
 
     public function fetchDeviceById(int $deviceId): ?array
     {
-        $sql = "SELECT id, znacka, model, ram, velkost_displeja, typ_zariadenia, cena_za_den, stav
+        $sql = "SELECT id, znacka, model, typ_zariadenia, velkost_displeja, ram, pamat, rok_vydania, softver, cena_za_den, zaloha, popis, stav
                 FROM MA_zariadenia
                 WHERE id = ?
                 LIMIT 1";
@@ -131,12 +167,72 @@ class Database
             'type' => $row['typ_zariadenia'] ?: 'zariadenie',
             'ram' => $row['ram'],
             'display' => $row['velkost_displeja'],
+            'memory' => $row['pamat'],
+            'release_year' => $row['rok_vydania'],
+            'software' => $row['softver'],
+            'deposit' => $row['zaloha'],
+            'description' => $row['popis'],
             'name' => $row['znacka'] . ' ' . $row['model'],
             'details' => $details ? implode(' • ', $details) : 'Parametre budú doplnené.',
             'price_per_day' => (float) $row['cena_za_den'],
             'price' => 'od ' . number_format((float) $row['cena_za_den'], 2, ',', ' ') . ' €/deň',
             'status' => $row['stav'] ?? 'dostupne',
         ];
+    }
+
+    public function updateDevice(int $deviceId, array $payload): void
+    {
+        $sql = "UPDATE MA_zariadenia
+                SET znacka = ?,
+                    model = ?,
+                    typ_zariadenia = ?,
+                    velkost_displeja = ?,
+                    ram = ?,
+                    pamat = ?,
+                    rok_vydania = ?,
+                    softver = ?,
+                    cena_za_den = ?,
+                    zaloha = ?,
+                    popis = ?,
+                    stav = ?
+                WHERE id = ?
+                LIMIT 1";
+        $params = [
+            $payload['znacka'],
+            $payload['model'],
+            $payload['typ_zariadenia'],
+            $payload['velkost_displeja'],
+            $payload['ram'],
+            $payload['pamat'],
+            $payload['rok_vydania'],
+            $payload['softver'],
+            $payload['cena_za_den'],
+            $payload['zaloha'],
+            $payload['popis'],
+            $payload['stav'],
+            $deviceId,
+        ];
+
+        $statement = $this->conn->prepare($sql);
+        if ($statement === false) {
+            throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+        }
+
+        $types = $this->buildParamTypes($params);
+        $bindParams = [$types];
+        foreach ($params as $index => $value) {
+            $bindParams[] = &$params[$index];
+        }
+        $statement->bind_param(...$bindParams);
+        $statement->execute();
+
+        if ($statement->errno) {
+            $error = $statement->error;
+            $statement->close();
+            throw new \RuntimeException('SQL chyba: ' . $error);
+        }
+
+        $statement->close();
     }
 
     public function fetchReviewsByDeviceId(int $deviceId): array
@@ -269,6 +365,41 @@ class Database
         return $insertId;
     }
 
+    public function createDeviceImages(int $deviceId, array $paths): void
+    {
+        if ($paths === []) {
+            return;
+        }
+
+        $statement = $this->conn->prepare(
+            "INSERT INTO MA_obrazky (zariadenie_id, cesta_k_suboru) VALUES (?, ?)"
+        );
+        if ($statement === false) {
+            throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+        }
+
+        foreach ($paths as $path) {
+            $statement->bind_param('is', $deviceId, $path);
+            $statement->execute();
+            if ($statement->errno) {
+                $error = $statement->error;
+                $statement->close();
+                throw new \RuntimeException('SQL chyba: ' . $error);
+            }
+        }
+
+        $statement->close();
+    }
+
+    public function fetchDeviceImages(int $deviceId): array
+    {
+        $rows = $this->fetchAll(
+            "SELECT cesta_k_suboru FROM MA_obrazky WHERE zariadenie_id = ? ORDER BY id",
+            [$deviceId]
+        );
+        return array_values(array_filter(array_column($rows, 'cesta_k_suboru')));
+    }
+
     public function createUser(array $payload): int
     {
         $sql = "INSERT INTO MA_pouzivatelia
@@ -342,28 +473,6 @@ class Database
             $rentalId = $statement->insert_id;
             $statement->close();
 
-            $itemStatement = $this->conn->prepare(
-                "INSERT INTO MA_polozky_prenajmu (prenajom_id, zariadenie_id, cena_za_den)
-                 VALUES (?, ?, ?)"
-            );
-            if ($itemStatement === false) {
-                throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
-            }
-
-            foreach ($items as $item) {
-                $deviceId = (int) $item['device_id'];
-                $pricePerDay = (float) $item['price_per_day'];
-                $itemStatement->bind_param('iid', $rentalId, $deviceId, $pricePerDay);
-                $itemStatement->execute();
-
-                if ($itemStatement->errno) {
-                    $error = $itemStatement->error;
-                    $itemStatement->close();
-                    throw new \RuntimeException('SQL chyba: ' . $error);
-                }
-            }
-
-            $itemStatement->close();
             $this->updateDeviceAvailability(array_column($items, 'device_id'), 'nedostupne');
 
             $this->conn->commit();

@@ -21,12 +21,26 @@ if (!in_array($selectedDays, $durations, true)) {
     $selectedDays = null;
 }
 
+$hasDeviceParam = $inputSource === INPUT_POST
+    ? array_key_exists('device_id', $_POST)
+    : array_key_exists('device_id', $_GET);
 $deviceIds = filter_input($inputSource, 'device_id', FILTER_VALIDATE_INT, FILTER_REQUIRE_ARRAY);
 if ($deviceIds === null || $deviceIds === false) {
     $singleDeviceId = filter_input($inputSource, 'device_id', FILTER_VALIDATE_INT);
     $deviceIds = $singleDeviceId ? [$singleDeviceId] : [];
 }
 $deviceIds = is_array($deviceIds) ? array_values(array_unique(array_filter($deviceIds))) : [];
+
+$sessionCart = $_SESSION['cart_device_ids'] ?? [];
+if (!is_array($sessionCart)) {
+    $sessionCart = [];
+}
+if ($hasDeviceParam) {
+    $deviceIds = array_values(array_unique(array_merge($sessionCart, $deviceIds)));
+} else {
+    $deviceIds = array_values(array_unique($sessionCart));
+}
+$_SESSION['cart_device_ids'] = $deviceIds;
 
 $orderComplete = false;
 $orderMessage = null;
@@ -163,6 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
 
                 $orderComplete = true;
                 $orderMessage = 'Prenájom bol úspešne uložený. Číslo objednávky: #' . $rentalId . '.';
+                $_SESSION['cart_device_ids'] = [];
             } catch (Throwable $exception) {
                 $errorReference = bin2hex(random_bytes(4));
                 error_log(

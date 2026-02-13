@@ -41,15 +41,6 @@ CREATE TABLE MA_prenajmy (
   FOREIGN KEY (pouzivatel_id) REFERENCES MA_pouzivatelia(id)
 );
 
-CREATE TABLE MA_polozky_prenajmu (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  prenajom_id INT NOT NULL,
-  zariadenie_id INT NOT NULL,
-  cena_za_den DECIMAL(8, 2),
-  FOREIGN KEY (prenajom_id) REFERENCES MA_prenajmy(id),
-  FOREIGN KEY (zariadenie_id) REFERENCES MA_zariadenia(id)
-);
-
 CREATE TABLE MA_platby (
   id INT AUTO_INCREMENT PRIMARY KEY,
   prenajom_id INT NOT NULL,

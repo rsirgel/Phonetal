@@ -3,8 +3,13 @@
 function renderDeviceFilter(array $options, array $selected)
 {
     ?>
-    <aside class="filter-panel">
-      <h2>Filter zariadení</h2>
+    <aside class="filter-panel" data-filter-panel>
+      <div class="filter-panel-header">
+        <h2>Filter zariadení</h2>
+        <button type="button" class="filter-close" data-filter-close aria-label="Zavrieť filter">
+          ×
+        </button>
+      </div>
       <p>Výsledky sa zobrazia okamžite po výbere parametrov.</p>
       <form method="get" action="zariadenia.php" class="filter-form">
         <div class="filter-group">

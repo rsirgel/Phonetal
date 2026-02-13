@@ -17,16 +17,34 @@ $page = new Page(
     'zariadenia.php'
 );
 
-$deviceId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-
 Auth::init();
 $currentUser = Auth::user();
+$isAdmin = Auth::isAdmin();
 $reviewNotice = null;
 $reviewErrors = [];
 $reviewForm = [
     'rating' => '',
     'comment' => '',
 ];
+$editNotice = null;
+$editErrors = [];
+$openEditModal = false;
+$editForm = [
+    'znacka' => '',
+    'model' => '',
+    'typ_zariadenia' => '',
+    'velkost_displeja' => '',
+    'ram' => '',
+    'pamat' => '',
+    'rok_vydania' => '',
+    'softver' => '',
+    'cena_za_den' => '',
+    'zaloha' => '',
+    'popis' => '',
+    'stav' => 'dostupne',
+];
+$deviceTypes = ['telefon', 'tablet', 'hodinky', 'sluchadla', 'prislusenstvo'];
+$deviceStatuses = ['dostupne', 'nedostupne'];
 
 function buildDeviceImage(string $title, string $subtitle): string
 {
@@ -67,6 +85,19 @@ function buildDeviceGallery(string $deviceName): array
             'caption' => 'Doručenie s ochranným obalom a nabíjačkou.',
         ],
     ];
+}
+
+function buildGalleryFromPaths(array $paths, string $deviceName): array
+{
+    $gallery = [];
+    foreach ($paths as $index => $path) {
+        $gallery[] = [
+            'src' => $path,
+            'alt' => $deviceName . ' fotografia ' . ($index + 1),
+            'caption' => 'Fotografia zariadenia.',
+        ];
+    }
+    return $gallery;
 }
 
 function buildDeviceDetail(array $device, ?array $reviews = null): array
@@ -206,6 +237,21 @@ if ($deviceId) {
 }
 
 if ($deviceId && $device) {
+    $editForm = [
+        'znacka' => (string) ($device['brand'] ?? ''),
+        'model' => (string) ($device['model'] ?? ''),
+        'typ_zariadenia' => (string) ($device['type'] ?? ''),
+        'velkost_displeja' => (string) ($device['display'] ?? ''),
+        'ram' => (string) ($device['ram'] ?? ''),
+        'pamat' => (string) ($device['memory'] ?? ''),
+        'rok_vydania' => (string) ($device['release_year'] ?? ''),
+        'softver' => (string) ($device['software'] ?? ''),
+        'cena_za_den' => isset($device['price_per_day']) ? (string) $device['price_per_day'] : '',
+        'zaloha' => isset($device['deposit']) ? (string) $device['deposit'] : '',
+        'popis' => (string) ($device['description'] ?? ''),
+        'stav' => (string) ($device['status'] ?? 'dostupne'),
+    ];
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = filter_input(INPUT_POST, 'action', FILTER_UNSAFE_RAW);
         if ($action === 'add_review') {
@@ -213,45 +259,102 @@ if ($deviceId && $device) {
                 $reviewErrors[] = 'Na pridanie recenzie sa prosím prihláste.';
             }
 
-            if (!Auth::validateCsrf($_POST['csrf_token'] ?? null)) {
-                $reviewErrors[] = 'Neplatný bezpečnostný token. Obnovte stránku a skúste znova.';
-            } else {
-                $rating = filter_input(
-                    INPUT_POST,
-                    'rating',
-                    FILTER_VALIDATE_INT,
-                    ['options' => ['min_range' => 1, 'max_range' => 5]]
-                );
-                $comment = trim((string) filter_input(INPUT_POST, 'comment', FILTER_UNSAFE_RAW));
+            $rating = filter_input(
+                INPUT_POST,
+                'rating',
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 1, 'max_range' => 5]]
+            );
+            $comment = trim((string) filter_input(INPUT_POST, 'comment', FILTER_UNSAFE_RAW));
 
-                $reviewForm = [
-                    'rating' => $rating ? (string) $rating : '',
-                    'comment' => $comment,
+            $reviewForm = [
+                'rating' => $rating ? (string) $rating : '',
+                'comment' => $comment,
+            ];
+
+            if (!$rating) {
+                $reviewErrors[] = 'Vyberte hodnotenie od 1 do 5 hviezdičiek.';
+            }
+
+            if ($comment === '') {
+                $reviewErrors[] = 'Napíšte krátku recenziu k zariadeniu.';
+            }
+
+            if ($reviewErrors === [] && $currentUser) {
+                try {
+                    $database = new Database();
+                    $database->createReview(
+                        (int) $currentUser['id'],
+                        (int) $deviceId,
+                        (int) $rating,
+                        mb_substr($comment, 0, 1000)
+                    );
+                    header('Location: zariadenia.php?id=' . (int) $deviceId . '&review=success');
+                    exit;
+                } catch (Throwable $exception) {
+                    $reviewErrors[] = 'Recenziu sa nepodarilo uložiť. Skúste to prosím neskôr.';
+                }
+            }
+        } elseif ($action === 'update_device') {
+            if (!$isAdmin) {
+                $editErrors[] = 'Na upravu zariadenia potrebujete admin prava.';
+            } elseif (!Auth::validateCsrf($_POST['csrf_token'] ?? null)) {
+                $editErrors[] = 'Neplatny bezpecnostny token. Obnovte stranku a skuste znova.';
+            } else {
+                $editForm = [
+                    'znacka' => trim((string) ($_POST['znacka'] ?? '')),
+                    'model' => trim((string) ($_POST['model'] ?? '')),
+                    'typ_zariadenia' => trim((string) ($_POST['typ_zariadenia'] ?? '')),
+                    'velkost_displeja' => trim((string) ($_POST['velkost_displeja'] ?? '')),
+                    'ram' => trim((string) ($_POST['ram'] ?? '')),
+                    'pamat' => trim((string) ($_POST['pamat'] ?? '')),
+                    'rok_vydania' => trim((string) ($_POST['rok_vydania'] ?? '')),
+                    'softver' => trim((string) ($_POST['softver'] ?? '')),
+                    'cena_za_den' => trim((string) ($_POST['cena_za_den'] ?? '')),
+                    'zaloha' => trim((string) ($_POST['zaloha'] ?? '')),
+                    'popis' => trim((string) ($_POST['popis'] ?? '')),
+                    'stav' => trim((string) ($_POST['stav'] ?? 'dostupne')),
                 ];
 
-                if (!$rating) {
-                    $reviewErrors[] = 'Vyberte hodnotenie od 1 do 5 hviezdičiek.';
+                if ($editForm['znacka'] === '' || $editForm['model'] === '' || $editForm['typ_zariadenia'] === '' || $editForm['cena_za_den'] === '') {
+                    $editErrors[] = 'Vyplnte znacku, model, typ zariadenia a cenu za den.';
+                }
+                if (!in_array($editForm['typ_zariadenia'], $deviceTypes, true)) {
+                    $editErrors[] = 'Neplatny typ zariadenia.';
+                }
+                if (!in_array($editForm['stav'], $deviceStatuses, true)) {
+                    $editErrors[] = 'Neplatny stav zariadenia.';
                 }
 
-                if ($comment === '') {
-                    $reviewErrors[] = 'Napíšte krátku recenziu k zariadeniu.';
-                }
+                if ($editErrors === []) {
+                    $payload = [
+                        'znacka' => $editForm['znacka'],
+                        'model' => $editForm['model'],
+                        'typ_zariadenia' => $editForm['typ_zariadenia'],
+                        'velkost_displeja' => $editForm['velkost_displeja'] !== '' ? $editForm['velkost_displeja'] : null,
+                        'ram' => $editForm['ram'] !== '' ? (int) $editForm['ram'] : null,
+                        'pamat' => $editForm['pamat'] !== '' ? (int) $editForm['pamat'] : null,
+                        'rok_vydania' => $editForm['rok_vydania'] !== '' ? (int) $editForm['rok_vydania'] : null,
+                        'softver' => $editForm['softver'] !== '' ? $editForm['softver'] : null,
+                        'cena_za_den' => (float) $editForm['cena_za_den'],
+                        'zaloha' => $editForm['zaloha'] !== '' ? (float) $editForm['zaloha'] : 0.0,
+                        'popis' => $editForm['popis'] !== '' ? $editForm['popis'] : null,
+                        'stav' => $editForm['stav'],
+                    ];
 
-                if ($reviewErrors === [] && $currentUser) {
                     try {
                         $database = new Database();
-                        $database->createReview(
-                            (int) $currentUser['id'],
-                            (int) $deviceId,
-                            (int) $rating,
-                            mb_substr($comment, 0, 1000)
-                        );
-                        header('Location: zariadenia.php?id=' . (int) $deviceId . '&review=success');
+                        $database->updateDevice((int) $deviceId, $payload);
+                        header('Location: zariadenia.php?id=' . (int) $deviceId . '&edit=success');
                         exit;
                     } catch (Throwable $exception) {
-                        $reviewErrors[] = 'Recenziu sa nepodarilo uložiť. Skúste to prosím neskôr.';
+                        $editErrors[] = 'Zariadenie sa nepodarilo ulozit. Skuste to neskor.';
                     }
                 }
+            }
+
+            if ($editErrors !== []) {
+                $openEditModal = true;
             }
         }
     }
@@ -263,40 +366,41 @@ if ($deviceId && $device) {
         $reviewsFromDb = null;
     }
 
+    $deviceImages = [];
+    try {
+        $database = new Database();
+        $deviceImages = $database->fetchDeviceImages((int) $deviceId);
+    } catch (Throwable $exception) {
+        $deviceImages = [];
+    }
+
     $device = array_merge($device, buildDeviceDetail($device, $reviewsFromDb));
+    if ($deviceImages !== []) {
+        $device['gallery'] = buildGalleryFromPaths($deviceImages, $device['name']);
+    }
 
     if (filter_input(INPUT_GET, 'review', FILTER_UNSAFE_RAW) === 'success') {
         $reviewNotice = 'Ďakujeme, recenzia bola uložená.';
     }
+    if (filter_input(INPUT_GET, 'edit', FILTER_UNSAFE_RAW) === 'success') {
+        $editNotice = 'Zariadenie bolo aktualizovane.';
+    }
 }
 
-$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters, $reviewNotice, $reviewErrors, $reviewForm, $currentUser): void {
+$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters, $reviewNotice, $reviewErrors, $reviewForm, $currentUser, $isAdmin, $editNotice, $editErrors, $openEditModal, $editForm, $deviceTypes, $deviceStatuses): void {
     ?>
       <?php if (!$deviceId): ?>
-        <section class="page-hero">
-          <div>
-            <p class="eyebrow">Katalóg zariadení</p>
-            <h1>Zariadenia na prenájom</h1>
-            <p>
-              Vyberte si z dostupných zariadení podľa typu, značky alebo parametrov. Zobrazené sú iba
-              položky, ktoré máme momentálne skladom.
-            </p>
-          </div>
-          <div class="page-hero-card">
-            <h2>Rýchle filtre</h2>
-            <ul>
-              <li>Minimálny prenájom: 7 dní</li>
-              <li>Maximálny prenájom: 60 dní</li>
-              <li>Dostupnosť: skladom</li>
-              <li>Platba: Google Pay, Apple Pay, PayPal</li>
-            </ul>
-          </div>
-        </section>
-
         <section class="section device-section">
           <div class="device-layout">
             <?php renderDeviceFilter($filterOptions, $selectedFilters); ?>
+            <div class="filter-overlay" data-filter-overlay></div>
             <div class="device-list">
+              <div class="filter-toggle-row">
+                <button type="button" class="ghost-button filter-toggle" data-filter-toggle>
+                  Filtrovať zariadenia
+                </button>
+                <span class="filter-toggle-hint">Upravte výsledky podľa vašich potrieb.</span>
+              </div>
               <div class="section-heading">
                 <h2>Aktuálne dostupné zariadenia</h2>
                 <p>Vyberte si zariadenie z databázy podľa parametrov, ktoré vám vyhovujú.</p>
@@ -316,23 +420,41 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
             </div>
           </div>
         </section>
+        <script>
+          (() => {
+            const toggle = document.querySelector('[data-filter-toggle]');
+            const panel = document.querySelector('[data-filter-panel]');
+            const overlay = document.querySelector('[data-filter-overlay]');
+            const closeButton = document.querySelector('[data-filter-close]');
+
+            if (!toggle || !panel || !overlay) {
+              return;
+            }
+
+            const open = () => document.body.classList.add('filter-open');
+            const close = () => document.body.classList.remove('filter-open');
+
+            toggle.addEventListener('click', open);
+            overlay.addEventListener('click', close);
+            if (closeButton) {
+              closeButton.addEventListener('click', close);
+            }
+
+            document.addEventListener('keydown', (event) => {
+              if (event.key === 'Escape') {
+                close();
+              }
+            });
+
+            const mediaQuery = window.matchMedia('(max-width: 900px)');
+            mediaQuery.addEventListener('change', (event) => {
+              if (!event.matches) {
+                close();
+              }
+            });
+          })();
+        </script>
       <?php elseif (!$device): ?>
-        <section class="page-hero">
-          <div>
-            <p class="eyebrow">Detail zariadenia</p>
-            <h1>Zariadenie nenájdené</h1>
-            <p>Skontrolujte prosím odkaz alebo sa vráťte do katalógu zariadení.</p>
-          </div>
-          <div class="page-hero-card">
-            <h2>Čo získate</h2>
-            <ul>
-              <li>Flexibilné dĺžky prenájmu</li>
-              <li>Expresné doručenie do 24 hodín</li>
-              <li>Poistenie a servis v cene</li>
-              <li>Možnosť výmeny počas prenájmu</li>
-            </ul>
-          </div>
-        </section>
         <section class="section">
           <div class="feature-card">
             <h2>Zariadenie sa nepodarilo načítať</h2>
@@ -341,23 +463,6 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
           </div>
         </section>
       <?php else: ?>
-        <section class="page-hero">
-          <div>
-            <p class="eyebrow">Detail zariadenia</p>
-            <h1><?= htmlspecialchars($device['name'], ENT_QUOTES, 'UTF-8') ?></h1>
-            <p><?= htmlspecialchars($device['summary'], ENT_QUOTES, 'UTF-8') ?></p>
-          </div>
-          <div class="page-hero-card">
-            <h2>Čo získate</h2>
-            <ul>
-              <li>Flexibilné dĺžky prenájmu</li>
-              <li>Expresné doručenie do 24 hodín</li>
-              <li>Poistenie a servis v cene</li>
-              <li>Možnosť výmeny počas prenájmu</li>
-            </ul>
-          </div>
-        </section>
-
         <section class="device-detail-hero">
           <div class="device-gallery" data-device-gallery>
             <?php $firstImage = $device['gallery'][0] ?? null; ?>
@@ -401,17 +506,121 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
             <h2><?= htmlspecialchars($device['name'], ENT_QUOTES, 'UTF-8') ?></h2>
             <p><?= htmlspecialchars($device['details'] ?? '', ENT_QUOTES, 'UTF-8') ?></p>
             <div class="device-price"><?= htmlspecialchars($device['price'], ENT_QUOTES, 'UTF-8') ?></div>
-            <div class="device-cta">
-              <a class="primary-button" href="kosik.php?device_id=<?= (int) $device['id'] ?>">Prenajať</a>
-              <a class="ghost-button" href="zariadenia.php">Späť na katalóg</a>
-            </div>
             <ul class="feature-list">
               <?php foreach ($device['highlights'] as $highlight): ?>
                 <li><?= htmlspecialchars($highlight, ENT_QUOTES, 'UTF-8') ?></li>
               <?php endforeach; ?>
             </ul>
+            <div class="device-cta">
+              <a class="primary-button" href="kosik.php?device_id=<?= (int) $device['id'] ?>">Prenajať</a>
+              <a class="ghost-button" href="zariadenia.php">Späť na katalóg</a>
+              <?php if ($isAdmin): ?>
+                <button type="button" class="ghost-button admin-edit-trigger" data-admin-edit-open>Upravit zariadenie</button>
+              <?php endif; ?>
+            </div>
+            <?php if ($editNotice): ?>
+              <div class="review-feedback review-feedback-success admin-form-feedback">
+                <?= htmlspecialchars($editNotice, ENT_QUOTES, 'UTF-8') ?>
+              </div>
+            <?php endif; ?>
           </div>
         </section>
+        <div class="lightbox" data-lightbox aria-hidden="true">
+          <div class="lightbox-content" role="dialog" aria-modal="true" aria-label="Zobrazenie fotografie">
+            <button type="button" class="lightbox-close" data-lightbox-close>Zavrieť</button>
+            <img class="lightbox-image" data-lightbox-image alt="">
+            <div class="lightbox-caption" data-lightbox-caption></div>
+          </div>
+        </div>
+        <?php if ($isAdmin): ?>
+          <div class="admin-modal-backdrop<?= $openEditModal ? ' is-open' : '' ?>" data-admin-edit-modal aria-hidden="<?= $openEditModal ? 'false' : 'true' ?>">
+            <div class="admin-modal" role="dialog" aria-modal="true" aria-label="Uprava zariadenia">
+              <div class="admin-modal-header">
+                <h3>Upravit zariadenie</h3>
+                <button type="button" class="lightbox-close" data-admin-edit-close>Zavriet</button>
+              </div>
+              <?php if ($editErrors): ?>
+                <div class="review-feedback review-feedback-error admin-form-feedback">
+                  <ul>
+                    <?php foreach ($editErrors as $error): ?>
+                      <li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></li>
+                    <?php endforeach; ?>
+                  </ul>
+                </div>
+              <?php endif; ?>
+              <form class="order-form admin-edit-form" method="post">
+                <input type="hidden" name="action" value="update_device">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                <div class="form-grid">
+                  <label>
+                    Znacka
+                    <input type="text" name="znacka" value="<?= htmlspecialchars($editForm['znacka'], ENT_QUOTES, 'UTF-8') ?>" required>
+                  </label>
+                  <label>
+                    Model
+                    <input type="text" name="model" value="<?= htmlspecialchars($editForm['model'], ENT_QUOTES, 'UTF-8') ?>" required>
+                  </label>
+                  <label>
+                    Typ zariadenia
+                    <select name="typ_zariadenia" required>
+                      <?php foreach ($deviceTypes as $type): ?>
+                        <option value="<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>" <?= $editForm['typ_zariadenia'] === $type ? 'selected' : '' ?>>
+                          <?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                  </label>
+                  <label>
+                    Velkost displeja
+                    <input type="text" name="velkost_displeja" value="<?= htmlspecialchars($editForm['velkost_displeja'], ENT_QUOTES, 'UTF-8') ?>">
+                  </label>
+                  <label>
+                    RAM (GB)
+                    <input type="number" name="ram" min="0" step="1" value="<?= htmlspecialchars($editForm['ram'], ENT_QUOTES, 'UTF-8') ?>">
+                  </label>
+                  <label>
+                    Pamat (GB)
+                    <input type="number" name="pamat" min="0" step="1" value="<?= htmlspecialchars($editForm['pamat'], ENT_QUOTES, 'UTF-8') ?>">
+                  </label>
+                  <label>
+                    Rok vydania
+                    <input type="number" name="rok_vydania" min="2000" step="1" value="<?= htmlspecialchars($editForm['rok_vydania'], ENT_QUOTES, 'UTF-8') ?>">
+                  </label>
+                  <label>
+                    Softver
+                    <input type="text" name="softver" value="<?= htmlspecialchars($editForm['softver'], ENT_QUOTES, 'UTF-8') ?>">
+                  </label>
+                  <label>
+                    Cena za den (EUR)
+                    <input type="number" name="cena_za_den" min="0" step="0.01" value="<?= htmlspecialchars($editForm['cena_za_den'], ENT_QUOTES, 'UTF-8') ?>" required>
+                  </label>
+                  <label>
+                    Zaloha (EUR)
+                    <input type="number" name="zaloha" min="0" step="0.01" value="<?= htmlspecialchars($editForm['zaloha'], ENT_QUOTES, 'UTF-8') ?>">
+                  </label>
+                  <label>
+                    Stav
+                    <select name="stav">
+                      <?php foreach ($deviceStatuses as $status): ?>
+                        <option value="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>" <?= $editForm['stav'] === $status ? 'selected' : '' ?>>
+                          <?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                  </label>
+                  <label>
+                    Popis
+                    <input type="text" name="popis" value="<?= htmlspecialchars($editForm['popis'], ENT_QUOTES, 'UTF-8') ?>">
+                  </label>
+                </div>
+                <div class="device-cta">
+                  <button class="primary-button" type="submit">Ulozit zmeny</button>
+                  <button class="ghost-button" type="button" data-admin-edit-close>Zrusit</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        <?php endif; ?>
         <section class="section device-detail-grid">
           <div class="device-detail-card">
             <h3>Popis zariadenia</h3>
@@ -474,7 +683,6 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
             <?php if ($currentUser): ?>
               <h3>Pridajte vlastnú recenziu</h3>
               <form class="review-form" method="post">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>" />
                 <input type="hidden" name="action" value="add_review">
                 <label>
                   Hodnotenie
@@ -554,8 +762,78 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
               const arrowButton = event.target.closest('[data-gallery-direction]');
               if (arrowButton) {
                 step(arrowButton.dataset.galleryDirection === 'next' ? 1 : -1);
+                return;
+              }
+              if (event.target === imageElement) {
+                const lightbox = document.querySelector('[data-lightbox]');
+                const lightboxImage = document.querySelector('[data-lightbox-image]');
+                const lightboxCaption = document.querySelector('[data-lightbox-caption]');
+                if (lightbox && lightboxImage && lightboxCaption) {
+                  lightboxImage.src = imageElement.src;
+                  lightboxImage.alt = imageElement.alt;
+                  lightboxCaption.textContent = captionElement.textContent;
+                  lightbox.classList.add('is-open');
+                  lightbox.setAttribute('aria-hidden', 'false');
+                }
               }
             });
+
+            const lightbox = document.querySelector('[data-lightbox]');
+            const lightboxClose = document.querySelector('[data-lightbox-close]');
+            if (lightbox && lightboxClose) {
+              const close = () => {
+                lightbox.classList.remove('is-open');
+                lightbox.setAttribute('aria-hidden', 'true');
+              };
+              lightboxClose.addEventListener('click', close);
+              lightbox.addEventListener('click', (event) => {
+                if (event.target === lightbox) {
+                  close();
+                }
+              });
+              document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && lightbox.classList.contains('is-open')) {
+                  close();
+                }
+              });
+            }
+
+            const editModal = document.querySelector('[data-admin-edit-modal]');
+            const editOpenButton = document.querySelector('[data-admin-edit-open]');
+            const editCloseButtons = document.querySelectorAll('[data-admin-edit-close]');
+            if (editModal) {
+              const openEditModal = () => {
+                editModal.classList.add('is-open');
+                editModal.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('modal-open');
+              };
+              const closeEditModal = () => {
+                editModal.classList.remove('is-open');
+                editModal.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('modal-open');
+              };
+
+              if (editOpenButton) {
+                editOpenButton.addEventListener('click', openEditModal);
+              }
+              editCloseButtons.forEach((button) => {
+                button.addEventListener('click', closeEditModal);
+              });
+              editModal.addEventListener('click', (event) => {
+                if (event.target === editModal) {
+                  closeEditModal();
+                }
+              });
+              document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && editModal.classList.contains('is-open')) {
+                  closeEditModal();
+                }
+              });
+
+              if (editModal.classList.contains('is-open')) {
+                document.body.classList.add('modal-open');
+              }
+            }
           })();
         </script>
       <?php endif; ?>

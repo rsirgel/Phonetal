@@ -53,6 +53,10 @@ class Page
         if ($basePath !== '' && str_ends_with($basePath, '/models')) {
             $basePath = rtrim(dirname($basePath), '/');
         }
+        if ($basePath !== '' && $basePath[0] !== '/') {
+            $basePath = '/' . $basePath;
+        }
+        $searchEndpoint = $basePath === '' ? 'search.php' : $basePath . '/search.php';
         ?>
 <!DOCTYPE html>
 <html lang="sk">
@@ -75,7 +79,10 @@ class Page
     <link rel="stylesheet" href="design/navbar.css" />
     <link rel="stylesheet" href="design/sidemenu.css" />
   </head>
-  <body data-app-base="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>">
+  <body
+    data-app-base="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>"
+    data-search-endpoint="<?= htmlspecialchars($searchEndpoint, ENT_QUOTES, 'UTF-8') ?>"
+  >
     <header class="site-header">
       <nav class="navbar">
         <a class="logo" href="index.php">
@@ -146,6 +153,9 @@ class Page
         <h4>Sledujte nás</h4>
         <p>Instagram • Facebook • LinkedIn</p>
       </div>
+      <p class="footer-copy">
+        <small>&copy; <?= date('Y') ?> Phonetal. Všetky práva vyhradené.</small>
+      </p>
     </footer>
     <script>
       const searchInput = document.getElementById('search-input');
@@ -155,8 +165,7 @@ class Page
       if (searchInput && searchResults) {
         let controller;
         const minLength = 2;
-        const basePath = document.body.dataset.appBase || '';
-        const searchEndpoint = `${window.location.origin}${basePath}/search.php`;
+        const searchEndpoint = document.body.dataset.searchEndpoint || 'search.php';
 
         const renderResults = (items, emptyMessage = 'Žiadne výsledky.') => {
           if (!items.length) {
@@ -166,7 +175,14 @@ class Page
           }
 
           searchResults.innerHTML = items
-            .map((item) => `<button type="button" class="search-item">${item}</button>`)
+            .map((item) => {
+              if (typeof item === 'string') {
+                return `<button type="button" class="search-item" data-label="${item}">${item}</button>`;
+              }
+              const label = item.label || '';
+              const id = Number(item.id);
+              return `<button type="button" class="search-item" data-id="${id}" data-label="${label}">${label}</button>`;
+            })
             .join('');
           searchResults.classList.add('is-visible');
         };
@@ -212,9 +228,16 @@ class Page
         searchResults.addEventListener('click', (event) => {
           const target = event.target;
           if (target && target.classList.contains('search-item')) {
-            searchInput.value = target.textContent;
+            const selectedLabel = target.dataset.label || target.textContent;
+            searchInput.value = selectedLabel;
             searchResults.innerHTML = '';
             searchResults.classList.remove('is-visible');
+            const selectedId = Number(target.dataset.id);
+            if (selectedId) {
+              const basePath = document.body.dataset.appBase || '';
+              const detailUrl = `${basePath ? basePath + '/' : ''}zariadenia.php?id=${selectedId}`;
+              window.location.href = detailUrl;
+            }
           }
         });
       }
