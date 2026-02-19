@@ -396,7 +396,7 @@ $page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step,
                       </label>
                     </div>
                     <div class="payment-details" id="payment-details" aria-live="polite">
-                      <h4>Platobné údaje kartou</h4>
+                      <h4>Platobné údaje</h4>
                       <div class="payment-details-grid">
                         <label>
                           Číslo karty
@@ -417,12 +417,6 @@ $page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step,
                       </div>
                       <p>Pri Apple Pay a Google Pay tieto údaje netreba vypĺňať.</p>
                     </div>
-                    <div class="payment-bank-info is-hidden" id="payment-bank-info" aria-hidden="true">
-                      <h4>Údaje pre bankový prevod</h4>
-                      <p>Číslo účtu:<br /><strong>SK1200000000000000000000</strong></p>
-                      <p>Variabilný symbol:<br /><strong>987654321</strong></p>
-                      <p>Čiastka:<br /><strong><?= htmlspecialchars($formattedTotal, ENT_QUOTES, 'UTF-8') ?></strong></p>
-                    </div>
                     <div class="payment-modal-actions">
                       <button class="ghost-button" type="button" id="cancel-payment">Späť</button>
                       <button class="primary-button" type="button" id="confirm-payment">Zaplatiť a odoslať</button>
@@ -440,26 +434,22 @@ $page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step,
                     const paymentModal = document.getElementById('payment-modal');
                     const paymentDetails = document.getElementById('payment-details');
                     const paymentMethodInputs = Array.from(document.querySelectorAll('input[name="payment_method_demo"]'));
-                    const paymentBankInfo = document.getElementById('payment-bank-info');
                     const detailInputs = paymentDetails ? Array.from(paymentDetails.querySelectorAll('input[data-demo-required="1"]')) : [];
 
-                    if (!checkoutForm || !openButton || !closeButton || !cancelButton || !confirmButton || !paymentModal || !paymentDetails || !paymentBankInfo || paymentMethodInputs.length === 0) {
+                    if (!checkoutForm || !openButton || !closeButton || !cancelButton || !confirmButton || !paymentModal || !paymentDetails || paymentMethodInputs.length === 0) {
                       return;
                     }
 
                     const refreshPaymentDetails = () => {
                       const selectedMethod = paymentMethodInputs.find((input) => input.checked)?.value ?? 'card';
-                      const isWalletPayment = selectedMethod === 'apple' || selectedMethod === 'google';
-                      const isBankTransfer = selectedMethod === 'bank';
+                      const hideDetails = selectedMethod === 'apple' || selectedMethod === 'google';
 
-                      paymentDetails.classList.toggle('is-hidden', isWalletPayment || isBankTransfer);
-                      paymentDetails.setAttribute('aria-hidden', isWalletPayment || isBankTransfer ? 'true' : 'false');
-                      paymentBankInfo.classList.toggle('is-hidden', !isBankTransfer);
-                      paymentBankInfo.setAttribute('aria-hidden', isBankTransfer ? 'false' : 'true');
+                      paymentDetails.classList.toggle('is-hidden', hideDetails);
+                      paymentDetails.setAttribute('aria-hidden', hideDetails ? 'true' : 'false');
 
                       detailInputs.forEach((input) => {
-                        input.required = !isWalletPayment && !isBankTransfer;
-                        input.disabled = isWalletPayment || isBankTransfer;
+                        input.required = !hideDetails;
+                        input.disabled = hideDetails;
                       });
                     };
 
