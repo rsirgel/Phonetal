@@ -322,7 +322,7 @@ $page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step,
                     </ul>
                   </div>
                 <?php endif; ?>
-                <form class="order-form" method="post" action="kosik.php?step=billing">
+                <form class="order-form" method="post" action="kosik.php?step=billing" id="checkout-form">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>" />
                   <input type="hidden" name="step" value="confirm" />
                   <input type="hidden" name="rental_days" value="<?= (int) $selectedDays ?>" />
@@ -367,8 +367,141 @@ $page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step,
                     <input type="checkbox" name="consent" value="1" required />
                     Súhlasím so všeobecnými podmienkami a spracovaním údajov.
                   </div>
-                  <button class="primary-button" type="submit">Odoslať objednávku</button>
+                  <button class="primary-button" type="button" id="open-payment-modal">Dokončiť objednávku</button>
                 </form>
+
+                <div class="payment-modal-backdrop" id="payment-modal" aria-hidden="true">
+                  <div class="payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
+                    <div class="payment-modal-header">
+                      <h3 id="payment-modal-title">Demo platobná brána</h3>
+                      <button class="ghost-button" type="button" id="close-payment-modal">Zavrieť</button>
+                    </div>
+                    <p>Vyberte spôsob platby a simulujte dokončenie objednávky.</p>
+                    <div class="payment-options" role="radiogroup" aria-label="Spôsob platby">
+                      <label>
+                        <input type="radio" name="payment_method_demo" value="card" checked />
+                        Platobná karta (demo)
+                      </label>
+                      <label>
+                        <input type="radio" name="payment_method_demo" value="apple" />
+                        Apple Pay (demo)
+                      </label>
+                      <label>
+                        <input type="radio" name="payment_method_demo" value="google" />
+                        Google Pay (demo)
+                      </label>
+                      <label>
+                        <input type="radio" name="payment_method_demo" value="bank" />
+                        Bankový prevod (demo)
+                      </label>
+                    </div>
+                    <div class="payment-details" id="payment-details" aria-live="polite">
+                      <h4>Platobné údaje kartou</h4>
+                      <div class="payment-details-grid">
+                        <label>
+                          Číslo karty
+                          <input type="text" name="payment_card_number" inputmode="numeric" placeholder="4242 4242 4242 4242" data-demo-required="1" />
+                        </label>
+                        <label>
+                          Meno na karte
+                          <input type="text" name="payment_card_name" placeholder="Ján Novák" data-demo-required="1" />
+                        </label>
+                        <label>
+                          Platnosť
+                          <input type="text" name="payment_card_expiry" placeholder="MM/RR" data-demo-required="1" />
+                        </label>
+                        <label>
+                          CVC
+                          <input type="text" name="payment_card_cvc" inputmode="numeric" placeholder="123" data-demo-required="1" />
+                        </label>
+                      </div>
+                      <p>Pri Apple Pay a Google Pay tieto údaje netreba vypĺňať.</p>
+                    </div>
+                    <div class="payment-bank-info is-hidden" id="payment-bank-info" aria-hidden="true">
+                      <h4>Údaje pre bankový prevod</h4>
+                      <p>Číslo účtu:<br /><strong>SK1200000000000000000000</strong></p>
+                      <p>Variabilný symbol:<br /><strong>987654321</strong></p>
+                      <p>Čiastka:<br /><strong><?= htmlspecialchars($formattedTotal, ENT_QUOTES, 'UTF-8') ?></strong></p>
+                    </div>
+                    <div class="payment-modal-actions">
+                      <button class="ghost-button" type="button" id="cancel-payment">Späť</button>
+                      <button class="primary-button" type="button" id="confirm-payment">Zaplatiť a odoslať</button>
+                    </div>
+                  </div>
+                </div>
+
+                <script>
+                  (function () {
+                    const checkoutForm = document.getElementById('checkout-form');
+                    const openButton = document.getElementById('open-payment-modal');
+                    const closeButton = document.getElementById('close-payment-modal');
+                    const cancelButton = document.getElementById('cancel-payment');
+                    const confirmButton = document.getElementById('confirm-payment');
+                    const paymentModal = document.getElementById('payment-modal');
+                    const paymentDetails = document.getElementById('payment-details');
+                    const paymentMethodInputs = Array.from(document.querySelectorAll('input[name="payment_method_demo"]'));
+                    const paymentBankInfo = document.getElementById('payment-bank-info');
+                    const detailInputs = paymentDetails ? Array.from(paymentDetails.querySelectorAll('input[data-demo-required="1"]')) : [];
+
+                    if (!checkoutForm || !openButton || !closeButton || !cancelButton || !confirmButton || !paymentModal || !paymentDetails || !paymentBankInfo || paymentMethodInputs.length === 0) {
+                      return;
+                    }
+
+                    const refreshPaymentDetails = () => {
+                      const selectedMethod = paymentMethodInputs.find((input) => input.checked)?.value ?? 'card';
+                      const isWalletPayment = selectedMethod === 'apple' || selectedMethod === 'google';
+                      const isBankTransfer = selectedMethod === 'bank';
+
+                      paymentDetails.classList.toggle('is-hidden', isWalletPayment || isBankTransfer);
+                      paymentDetails.setAttribute('aria-hidden', isWalletPayment || isBankTransfer ? 'true' : 'false');
+                      paymentBankInfo.classList.toggle('is-hidden', !isBankTransfer);
+                      paymentBankInfo.setAttribute('aria-hidden', isBankTransfer ? 'false' : 'true');
+
+                      detailInputs.forEach((input) => {
+                        input.required = !isWalletPayment && !isBankTransfer;
+                        input.disabled = isWalletPayment || isBankTransfer;
+                      });
+                    };
+
+                    const closeModal = () => {
+                      paymentModal.classList.remove('is-open');
+                      paymentModal.setAttribute('aria-hidden', 'true');
+                      document.body.classList.remove('modal-open');
+                    };
+
+                    const openModal = () => {
+                      paymentModal.classList.add('is-open');
+                      paymentModal.setAttribute('aria-hidden', 'false');
+                      document.body.classList.add('modal-open');
+                    };
+
+                    paymentMethodInputs.forEach((input) => {
+                      input.addEventListener('change', refreshPaymentDetails);
+                    });
+
+                    refreshPaymentDetails();
+
+                    openButton.addEventListener('click', () => {
+                      if (typeof checkoutForm.reportValidity === 'function' && !checkoutForm.reportValidity()) {
+                        return;
+                      }
+                      openModal();
+                    });
+
+                    closeButton.addEventListener('click', closeModal);
+                    cancelButton.addEventListener('click', closeModal);
+                    paymentModal.addEventListener('click', (event) => {
+                      if (event.target === paymentModal) {
+                        closeModal();
+                      }
+                    });
+
+                    confirmButton.addEventListener('click', () => {
+                      closeModal();
+                      checkoutForm.submit();
+                    });
+                  }());
+                </script>
               <?php endif; ?>
             <?php endif; ?>
           <?php endif; ?>
