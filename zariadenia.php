@@ -1,8 +1,8 @@
 <?php
-require_once __DIR__ . '/models/Page.php';
+require_once __DIR__ . '/models/page.php';
 require_once __DIR__ . '/models/device-filter.php';
 require_once __DIR__ . '/models/device-card.php';
-require_once __DIR__ . '/models/Auth.php';
+require_once __DIR__ . '/models/auth.php';
 require_once __DIR__ . '/config/database.php';
 
 $deviceId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -198,12 +198,14 @@ $filterOptions = [
     'znacky' => [],
     'ram' => [],
     'uhlopriecky' => [],
+    'stavy' => [],
 ];
 $selectedFilters = [
     'typy' => [],
     'znacky' => [],
     'ram' => [],
     'uhlopriecky' => [],
+    'stav' => 'dostupne',
 ];
 
 if ($deviceId && isset($fallbackDevices[$deviceId])) {
@@ -224,14 +226,37 @@ if ($deviceId) {
     try {
         $database = new Database();
         $filterOptions = $database->fetchFilterOptions();
+        $rawStatus = $_GET['stav'] ?? null;
+        if (is_array($rawStatus)) {
+            $rawStatus = $rawStatus[0] ?? null;
+        }
+        if ($rawStatus === null && isset($_GET['stavy'])) {
+            $legacyStatuses = $_GET['stavy'];
+            if (is_array($legacyStatuses)) {
+                $rawStatus = $legacyStatuses[0] ?? null;
+            } else {
+                $rawStatus = $legacyStatuses;
+            }
+        }
+        $normalizedStatus = strtolower(trim((string) ($rawStatus ?? 'dostupne')));
+        if (!in_array($normalizedStatus, ['dostupne', 'nedostupne'], true)) {
+            $normalizedStatus = 'dostupne';
+        }
         $selectedFilters = [
             'typy' => array_values(filter_input(INPUT_GET, 'typy', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
             'znacky' => array_values(filter_input(INPUT_GET, 'znacky', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
             'ram' => array_values(filter_input(INPUT_GET, 'ram', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
             'uhlopriecky' => array_values(filter_input(INPUT_GET, 'uhlopriecky', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
+            'stav' => $normalizedStatus,
         ];
         $devices = $database->fetchDevicesByFilters($selectedFilters);
+        foreach ($devices as &$deviceRow) {
+            $imagePaths = $database->fetchDeviceImages((int) ($deviceRow['id'] ?? 0));
+            $deviceRow['image'] = $imagePaths[0] ?? null;
+        }
+        unset($deviceRow);
     } catch (Throwable $exception) {
+        error_log('Nepodarilo sa nacitat zariadenia: ' . $exception->getMessage());
         $devices = [];
     }
 }
@@ -370,6 +395,19 @@ if ($deviceId && $device) {
     try {
         $database = new Database();
         $deviceImages = $database->fetchDeviceImages((int) $deviceId);
+        if ($deviceImages !== []) {
+            $existingImages = array_values(array_filter($deviceImages, static function (string $path): bool {
+                if (preg_match('#^(https?://|data:)#i', $path) === 1) {
+                    return true;
+                }
+                return is_file(__DIR__ . '/' . ltrim($path, '/'));
+            }));
+            if ($existingImages === []) {
+                error_log('Zariadenie ' . (int) $deviceId . ' ma obrazky v DB, ale subory neexistuju na disku.');
+            } else {
+                $deviceImages = $existingImages;
+            }
+        }
     } catch (Throwable $exception) {
         $deviceImages = [];
     }

@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/models/Page.php';
-require_once __DIR__ . '/models/Auth.php';
+require_once __DIR__ . '/models/page.php';
+require_once __DIR__ . '/models/auth.php';
 require_once __DIR__ . '/config/database.php';
 
 Auth::init();
@@ -22,6 +22,7 @@ $formData = [
     'popis' => '',
     'stav' => 'dostupne',
 ];
+$uploadedImageErrors = [];
 
 $deviceTypes = ['telefon', 'tablet', 'hodinky', 'sluchadla', 'prislusenstvo'];
 $deviceStatuses = ['dostupne', 'nedostupne'];
@@ -49,8 +50,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'stav' => trim((string) ($_POST['stav'] ?? 'dostupne')),
         ];
 
+        $images = $_FILES['images'] ?? null;
+        if ($images && is_array($images['name'])) {
+            $imageCount = 0;
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            foreach ($images['name'] as $index => $name) {
+                if ($images['error'][$index] === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+                if ($images['error'][$index] !== UPLOAD_ERR_OK) {
+                    $uploadedImageErrors[] = 'Nepodarilo sa nahrat jednu z fotiek.';
+                    continue;
+                }
+                $tmpName = $images['tmp_name'][$index];
+                $mime = $finfo->file($tmpName);
+                if (!in_array($mime, ['image/png', 'image/jpeg'], true)) {
+                    $uploadedImageErrors[] = 'Povolene su iba PNG alebo JPG fotky.';
+                }
+                $imageCount++;
+            }
+            if ($imageCount > 4) {
+                $uploadedImageErrors[] = 'Môžete nahrať maximálne 4 fotky.';
+            }
+        }
+
         if ($formData['znacka'] === '' || $formData['model'] === '' || $formData['typ_zariadenia'] === '' || $formData['cena_za_den'] === '') {
             $error = 'Vyplňte značku, model, typ zariadenia a cenu za deň.';
+        } elseif ($uploadedImageErrors) {
+            $error = implode(' ', $uploadedImageErrors);
         } elseif (!in_array($formData['typ_zariadenia'], $deviceTypes, true)) {
             $error = 'Neplatný typ zariadenia.';
         } elseif (!in_array($formData['stav'], $deviceStatuses, true)) {
@@ -74,6 +101,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $database = new Database();
                 $deviceId = $database->createDevice($payload);
+                $savedPaths = [];
+                if ($images && is_array($images['name'])) {
+                    $uploadDir = __DIR__ . '/pictures';
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    $finfo = new finfo(FILEINFO_MIME_TYPE);
+                    foreach ($images['name'] as $index => $name) {
+                        if ($images['error'][$index] === UPLOAD_ERR_NO_FILE) {
+                            continue;
+                        }
+                        if ($images['error'][$index] !== UPLOAD_ERR_OK) {
+                            continue;
+                        }
+                        $tmpName = $images['tmp_name'][$index];
+                        $mime = $finfo->file($tmpName);
+                        if (!in_array($mime, ['image/png', 'image/jpeg'], true)) {
+                            continue;
+                        }
+                        $extension = $mime === 'image/png' ? 'png' : 'jpg';
+                        $safeBase = preg_replace('/[^a-zA-Z0-9_-]+/', '_', pathinfo($name, PATHINFO_FILENAME));
+                        $fileName = sprintf('device_%d_%s_%s.%s', (int) $deviceId, $safeBase, bin2hex(random_bytes(4)), $extension);
+                        $targetPath = $uploadDir . '/' . $fileName;
+                        if (move_uploaded_file($tmpName, $targetPath)) {
+                            $savedPaths[] = 'pictures/' . $fileName;
+                        }
+                    }
+                }
+                if ($savedPaths !== []) {
+                    $database->createDeviceImages($deviceId, $savedPaths);
+                }
                 $message = 'Zariadenie bolo pridané (ID: ' . $deviceId . ').';
                 $formData = array_merge($formData, ['model' => '', 'znacka' => '', 'velkost_displeja' => '', 'ram' => '', 'pamat' => '', 'rok_vydania' => '', 'softver' => '', 'cena_za_den' => '', 'zaloha' => '', 'popis' => '']);
             } catch (Throwable $exception) {
@@ -117,19 +175,6 @@ $page->render(function () use ($user, $isAdmin, $message, $error, $formData, $de
               <h3>Správa zariadení</h3>
               <p>Pridajte nové zariadenia a aktualizujte dostupnosť.</p>
             </div>
-            <div class="feature-card">
-              <h3>Objednávky</h3>
-              <p>Kontrola prenájmov a schvaľovanie platieb.</p>
-            </div>
-            <div class="feature-card">
-              <h3>Používatelia</h3>
-              <p>Správa účtov.</p>
-            </div>
-          </div>
-          <div class="section-heading">
-            <h2>Čo môžete spravovať</h2>
-            <p>Kontrola prenájmov a schvaľovanie platieb.</p>
-            <p>Správa účtov.</p>
           </div>
           <div class="section-heading">
             <h2>Používatelia v systéme</h2>
@@ -156,7 +201,7 @@ $page->render(function () use ($user, $isAdmin, $message, $error, $formData, $de
             <h2>Pridať nové zariadenie</h2>
             <p>Vyplňte údaje zariadenia, ktoré chcete zaradiť do ponuky.</p>
           </div>
-          <form class="order-form" method="post">
+          <form class="order-form" method="post" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>" />
             <div class="form-grid">
               <label>
@@ -219,6 +264,10 @@ $page->render(function () use ($user, $isAdmin, $message, $error, $formData, $de
               <label>
                 Popis
                 <input type="text" name="popis" placeholder="Krátky popis zariadenia" value="<?= htmlspecialchars($formData['popis'], ENT_QUOTES, 'UTF-8') ?>" />
+              </label>
+              <label>
+                Fotky (PNG alebo JPG, max 4)
+                <input type="file" name="images[]" accept="image/png,image/jpeg" multiple />
               </label>
             </div>
             <button class="primary-button" type="submit">Pridať zariadenie</button>

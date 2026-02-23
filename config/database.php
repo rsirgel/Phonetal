@@ -97,13 +97,28 @@ class Database
             'znacky' => $this->fetchDistinctOptions('znacka'),
             'ram' => $this->fetchDistinctOptions('ram'),
             'uhlopriecky' => $this->fetchDistinctOptions('velkost_displeja'),
+            'stavy' => ['dostupne', 'nedostupne'],
         ];
     }
 
     public function fetchDevicesByFilters(array $filters): array
     {
-        $conditions = ["stav = 'dostupne'"];
+        $conditions = [];
         $params = [];
+
+        $rawStatus = $filters['stav'] ?? null;
+        if (is_array($rawStatus)) {
+            $rawStatus = $rawStatus[0] ?? null;
+        }
+        if ($rawStatus === null && isset($filters['stavy']) && is_array($filters['stavy'])) {
+            $rawStatus = $filters['stavy'][0] ?? null;
+        }
+        $status = strtolower(trim((string) ($rawStatus ?? 'dostupne')));
+        if (!in_array($status, ['dostupne', 'nedostupne'], true)) {
+            $status = 'dostupne';
+        }
+        $conditions[] = 'stav = ?';
+        $params[] = $status;
 
         if (!empty($filters['typy'])) {
             $conditions[] = $this->buildInClause('typ_zariadenia', $filters['typy'], $params);
@@ -397,7 +412,44 @@ class Database
             "SELECT cesta_k_suboru FROM MA_obrazky WHERE zariadenie_id = ? ORDER BY id",
             [$deviceId]
         );
-        return array_values(array_filter(array_column($rows, 'cesta_k_suboru')));
+        $paths = [];
+        foreach (array_column($rows, 'cesta_k_suboru') as $rawPath) {
+            if (!is_string($rawPath) || trim($rawPath) === '') {
+                continue;
+            }
+            $normalized = $this->normalizeImagePath($rawPath);
+            if ($normalized !== null) {
+                $paths[] = $normalized;
+            }
+        }
+        return array_values(array_unique($paths));
+    }
+
+    private function normalizeImagePath(string $rawPath): ?string
+    {
+        $path = trim(str_replace('\\', '/', $rawPath));
+        if ($path === '') {
+            return null;
+        }
+
+        if (preg_match('#^(https?://|data:)#i', $path) === 1) {
+            return $path;
+        }
+
+        if (preg_match('#^[A-Za-z]:/#', $path) === 1) {
+            $path = 'pictures/' . basename($path);
+        }
+
+        $path = preg_replace('#^\./+#', '', $path);
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        if (strpos($path, 'pictures/') !== 0 && strpos($path, '/') === false) {
+            $path = 'pictures/' . $path;
+        }
+
+        return $path;
     }
 
     public function createUser(array $payload): int
@@ -593,8 +645,42 @@ class Database
         $statement->bind_param(...$bindParams);
         $statement->execute();
 
-        $result = $statement->get_result();
-        $rows = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+        $rows = [];
+        if (method_exists($statement, 'get_result')) {
+            $result = $statement->get_result();
+            if ($result !== false) {
+                $rows = $result->fetch_all(MYSQLI_ASSOC);
+                $statement->close();
+                return $rows;
+            }
+        }
+
+        $metadata = $statement->result_metadata();
+        if ($metadata) {
+            $fields = [];
+            while ($field = $metadata->fetch_field()) {
+                $fields[] = $field->name;
+            }
+            $metadata->free();
+
+            if ($fields !== []) {
+                $rowData = [];
+                $bindResult = [];
+                foreach ($fields as $fieldName) {
+                    $rowData[$fieldName] = null;
+                    $bindResult[] = &$rowData[$fieldName];
+                }
+
+                $statement->bind_result(...$bindResult);
+                while ($statement->fetch()) {
+                    $row = [];
+                    foreach ($fields as $fieldName) {
+                        $row[$fieldName] = $rowData[$fieldName];
+                    }
+                    $rows[] = $row;
+                }
+            }
+        }
         $statement->close();
 
         return $rows;

@@ -4,6 +4,31 @@ use PHPMailer\PHPMailer\Exception;
 
 require __DIR__ . '/../mail_app/vendor/autoload.php';
 
+function loadMailConfig(): array
+{
+    $configFile = __DIR__ . '/mail_config.php';
+    if (!is_file($configFile)) {
+        return [];
+    }
+
+    $config = require $configFile;
+    return is_array($config) ? $config : [];
+}
+
+function getMailSetting(array $config, string $envKey, $fallback = '')
+{
+    $value = getenv($envKey);
+    if ($value !== false && $value !== '') {
+        return $value;
+    }
+
+    if (array_key_exists($envKey, $config)) {
+        return $config[$envKey];
+    }
+
+    return $fallback;
+}
+
 function sendRentalStartEmail(array $payload): bool
 {
     $email = (string) ($payload['email'] ?? '');
@@ -22,14 +47,15 @@ function sendRentalStartEmail(array $payload): bool
     $endLabel = $endDate instanceof DateTimeInterface ? $endDate->format('d.m.Y') : '';
     $deliveryLabel = $deliveryDays === 1 ? 'dňa' : 'dní';
 
-    $mailFrom = getenv('MAIL_FROM_ADDRESS') ?: (getenv('PHONETAL_MAIL_FROM') ?: 'info@phonetal.sk');
-    $mailFromName = getenv('MAIL_FROM_NAME') ?: (getenv('PHONETAL_MAIL_FROM_NAME') ?: 'Phonetal');
-    $mailMailer = strtolower((string) (getenv('MAIL_MAILER') ?: 'smtp'));
-    $smtpHost = (string) (getenv('MAIL_HOST') ?: '');
-    $smtpUser = (string) (getenv('MAIL_USERNAME') ?: '');
-    $smtpPass = (string) (getenv('MAIL_PASSWORD') ?: '');
-    $smtpPort = (int) (getenv('MAIL_PORT') ?: 587);
-    $enc = strtolower(trim((string) (getenv('MAIL_ENCRYPTION') ?: 'tls')));
+    $mailConfig = loadMailConfig();
+    $mailFrom = getMailSetting($mailConfig, 'MAIL_FROM_ADDRESS', getMailSetting($mailConfig, 'PHONETAL_MAIL_FROM', 'info@phonetal.sk'));
+    $mailFromName = getMailSetting($mailConfig, 'MAIL_FROM_NAME', getMailSetting($mailConfig, 'PHONETAL_MAIL_FROM_NAME', 'Phonetal'));
+    $mailMailer = strtolower((string) getMailSetting($mailConfig, 'MAIL_MAILER', 'smtp'));
+    $smtpHost = (string) getMailSetting($mailConfig, 'MAIL_HOST', '');
+    $smtpUser = (string) getMailSetting($mailConfig, 'MAIL_USERNAME', '');
+    $smtpPass = (string) getMailSetting($mailConfig, 'MAIL_PASSWORD', '');
+    $smtpPort = (int) getMailSetting($mailConfig, 'MAIL_PORT', 587);
+    $enc = strtolower(trim((string) getMailSetting($mailConfig, 'MAIL_ENCRYPTION', 'tls')));
     if ($enc === 'tls' || $enc === 'starttls') {
         $smtpSecure = PHPMailer::ENCRYPTION_STARTTLS;
     } elseif ($enc === 'ssl' || $enc === 'smtps') {
@@ -38,10 +64,10 @@ function sendRentalStartEmail(array $payload): bool
         $smtpSecure = '';
     }
 
-    $subject = 'Dakujeme za prenajom #' . $rentalId;
+    $subject = 'Ďakujeme za prenajom #' . $rentalId;
     $body =
         '<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a37;">'
-        . '<h2 style="margin: 0 0 12px;">Dakujeme za prenajom</h2>'
+        . '<h2 style="margin: 0 0 12px;">Ďakujeme za prenajom</h2>'
         . '<p>Dobrý deň ' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . ',</p>'
         . '<p>Váš prenájom (#' . htmlspecialchars((string) $rentalId, ENT_QUOTES, 'UTF-8') . ') bol úspešne vytvorený.</p>'
         . '<p>Vaše zariadenie bude doručené do <strong>' . $deliveryDays . ' ' . $deliveryLabel . '</strong>.</p>'
@@ -51,7 +77,7 @@ function sendRentalStartEmail(array $payload): bool
         . '</div>';
 
     $altBody =
-        "Dakujeme za prenajom\n\n"
+        "Ďakujeme za prenajom\n\n"
         . "Dobrý deň {$name},\n"
         . "Váš prenájom (#{$rentalId}) bol úspešne vytvorený.\n"
         . "Vaše zariadenie bude doručené do {$deliveryDays} {$deliveryLabel}.\n"
@@ -116,18 +142,19 @@ if ($notifications === []) {
 }
 
 // --- Nastavenie odosielateľa (Laravel .env štýl) ---
-$mailFrom = getenv('MAIL_FROM_ADDRESS') ?: (getenv('PHONETAL_MAIL_FROM') ?: 'info@phonetal.sk');
-$mailFromName = getenv('MAIL_FROM_NAME') ?: (getenv('PHONETAL_MAIL_FROM_NAME') ?: 'Phonetal');
+$mailConfig = loadMailConfig();
+$mailFrom = getMailSetting($mailConfig, 'MAIL_FROM_ADDRESS', getMailSetting($mailConfig, 'PHONETAL_MAIL_FROM', 'info@phonetal.sk'));
+$mailFromName = getMailSetting($mailConfig, 'MAIL_FROM_NAME', getMailSetting($mailConfig, 'PHONETAL_MAIL_FROM_NAME', 'Phonetal'));
 
 // --- Nastavenie mailera / SMTP (Laravel .env štýl) ---
-$mailMailer = strtolower((string) (getenv('MAIL_MAILER') ?: 'smtp'));
-$smtpHost = (string) (getenv('MAIL_HOST') ?: '');
-$smtpUser = (string) (getenv('MAIL_USERNAME') ?: '');
-$smtpPass = (string) (getenv('MAIL_PASSWORD') ?: '');
-$smtpPort = (int) (getenv('MAIL_PORT') ?: 587);
+$mailMailer = strtolower((string) getMailSetting($mailConfig, 'MAIL_MAILER', 'smtp'));
+$smtpHost = (string) getMailSetting($mailConfig, 'MAIL_HOST', '');
+$smtpUser = (string) getMailSetting($mailConfig, 'MAIL_USERNAME', '');
+$smtpPass = (string) getMailSetting($mailConfig, 'MAIL_PASSWORD', '');
+$smtpPort = (int) getMailSetting($mailConfig, 'MAIL_PORT', 587);
 
 // MAIL_ENCRYPTION: tls | ssl | (prázdne/none/null)
-$enc = strtolower(trim((string) (getenv('MAIL_ENCRYPTION') ?: 'tls')));
+$enc = strtolower(trim((string) getMailSetting($mailConfig, 'MAIL_ENCRYPTION', 'tls')));
 if ($enc === 'tls' || $enc === 'starttls') {
     $smtpSecure = PHPMailer::ENCRYPTION_STARTTLS;
 } elseif ($enc === 'ssl' || $enc === 'smtps') {
@@ -173,7 +200,7 @@ foreach ($notifications as $notification) {
         . '<p>vas prenajom (#' . htmlspecialchars($prenajomId, ENT_QUOTES, 'UTF-8') . ') konci o ' . $dni . ' ' . $daysLabel . '.</p>'
         . '<p>Datum ukoncenia: <strong>' . htmlspecialchars($koniec, ENT_QUOTES, 'UTF-8') . '</strong>.</p>'
         . '<p>Ak potrebujete predlzit prenajom alebo mate otazky, ozvite sa nam na ' . htmlspecialchars($mailFrom, ENT_QUOTES, 'UTF-8') . '.</p>'
-        . '<p style="margin-top: 24px;">Dakujeme,<br>Tim ' . htmlspecialchars($mailFromName, ENT_QUOTES, 'UTF-8') . '</p>'
+        . '<p style="margin-top: 24px;">Ďakujeme,<br>Tim ' . htmlspecialchars($mailFromName, ENT_QUOTES, 'UTF-8') . '</p>'
         . '</div>';
 
     // text verzia
