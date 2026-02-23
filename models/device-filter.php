@@ -13,6 +13,21 @@ function renderDeviceFilter(array $options, array $selected)
       <p>Výsledky sa zobrazia okamžite po výbere parametrov.</p>
       <form method="get" action="zariadenia.php" class="filter-form">
         <div class="filter-group">
+          <h3>Dostupnosť</h3>
+          <?php foreach ($options['stavy'] as $status): ?>
+            <label>
+              <input
+                type="radio"
+                name="stav"
+                value="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>"
+                <?= (($selected['stav'] ?? 'dostupne') === $status) ? 'checked' : '' ?>
+                data-filter-input
+              />
+              <?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>
+            </label>
+          <?php endforeach; ?>
+        </div>
+        <div class="filter-group">
           <h3>Typ zariadenia</h3>
           <?php foreach ($options['typy'] as $type): ?>
             <label>
