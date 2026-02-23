@@ -594,126 +594,14 @@ body.modal-open {
   text-align: center;
 }
 
-.device-section {
-  position: relative;
-}
-
-.device-layout {
+.feature-card {
   display: grid;
-  grid-template-columns: minmax(220px, 280px) 1fr;
-  gap: 2rem;
-  align-items: start;
+  gap: 0.65rem;
 }
 
-.device-list {
-  min-width: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.device-list .product-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.5rem;
-  visibility: visible;
-  opacity: 1;
-}
-
-.device-list .product-card {
-  display: grid;
-  visibility: visible;
-}
-
-.filter-panel {
-  background: var(--light-gray);
-  border-radius: 24px;
-  padding: 1.5rem;
-  display: grid;
-  gap: 1rem;
-  position: sticky;
-  top: 90px;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.06);
-}
-
-.filter-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.filter-panel p {
-  color: var(--gray);
-  font-size: 0.95rem;
-}
-
-.filter-form {
-  display: grid;
-  gap: 1.25rem;
-}
-
-.filter-group {
-  display: grid;
-  gap: 0.6rem;
-}
-
-.filter-group h3 {
-  font-size: 1rem;
-}
-
-.filter-group label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.95rem;
-  color: var(--gray);
-}
-
-.filter-group input {
-  accent-color: var(--green);
-}
-
-.filter-toggle-row {
-  display: none;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.filter-toggle {
-  white-space: nowrap;
-}
-
-.filter-toggle-hint {
-  color: var(--gray);
-  font-size: 0.95rem;
-}
-
-.filter-close {
-  border: none;
-  background: var(--white);
-  color: var(--black);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
-  cursor: pointer;
-}
-
-.filter-overlay {
-  display: none;
-}
-
-@media (min-width: 901px) {
-  .filter-overlay {
-    display: none !important;
-    pointer-events: none !important;
-    opacity: 0 !important;
-  }
+.feature-card .primary-button {
+  margin-top: 0.6rem;
+  justify-self: start;
 }
 
 .order-form {
@@ -734,10 +622,7 @@ body.modal-open {
   font-size: 0.95rem;
 }
 
-.order-form input[type="text"],
-.order-form input[type="email"],
-.order-form input[type="tel"],
-.order-form input[type="number"],
+.order-form input:not([type="hidden"]),
 .order-form select,
 .order-form textarea {
   padding: 0.75rem 1rem;
@@ -745,6 +630,16 @@ body.modal-open {
   border: 1px solid #e0e0e0;
   font-size: 1rem;
   font-family: inherit;
+}
+
+.order-form input[type="password"]::-ms-reveal,
+.order-form input[type="password"]::-ms-clear {
+  display: none;
+}
+
+.cart-primary-action {
+  align-self: flex-start;
+  margin-top: 0.9rem;
 }
 
 .review-list {
@@ -954,16 +849,11 @@ body.modal-open {
   gap: 0.6rem;
 }
 
-.nav-actions,
 .auth-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
-}
-
-.nav-user {
-  font-weight: 600;
 }
 
 .profile-menu {
@@ -1117,69 +1007,17 @@ body.modal-open {
     grid-template-columns: 1fr;
   }
 
-  .nav-search {
-    max-width: 100%;
-    order: 3;
-    width: 100%;
-  }
-
   .steps,
   .services,
   .contact {
     padding: 2rem;
   }
-
-  .device-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .filter-panel {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    width: min(88vw, 320px);
-    transform: translateX(-100%);
-    transition: transform 0.25s ease;
-    z-index: 40;
-    border-radius: 0 24px 24px 0;
-    padding: 1.75rem 1.25rem 2rem;
-    overflow-y: auto;
-  }
-
-  .filter-close {
-    display: inline-flex;
-  }
-
-  .filter-toggle-row {
-    display: flex;
-  }
-
-  .filter-overlay {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(17, 17, 17, 0.45);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-    z-index: 35;
-  }
-
-  .filter-open .filter-panel {
-    transform: translateX(0);
-  }
-
-  .filter-open .filter-overlay {
-    opacity: 1;
-    pointer-events: auto;
-  }
 }
 
 @media (max-width: 600px) {
-  .navbar {
-    flex-direction: column;
-    align-items: flex-start;
+  .cart-primary-action {
+    width: 100%;
+    justify-content: center;
   }
 
   .hero-stats {

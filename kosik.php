@@ -273,7 +273,7 @@ $page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step,
                     <input type="text" placeholder="Testovanie, firemné použitie" />
                   </label>
                 </div>
-                <button class="primary-button" type="submit">Pokračovať ďalej</button>
+                <button class="primary-button cart-primary-action" type="submit">Pokračovať ďalej</button>
               </form>
             <?php endif; ?>
           <?php else: ?>
@@ -367,7 +367,7 @@ $page->render(function () use ($selectedDevices, $durations, $isLoggedIn, $step,
                     <input type="checkbox" name="consent" value="1" required />
                     Súhlasím so všeobecnými podmienkami a spracovaním údajov.
                   </div>
-                  <button class="primary-button" type="button" id="open-payment-modal">Dokončiť objednávku</button>
+                  <button class="primary-button cart-primary-action" type="button" id="open-payment-modal">Dokončiť objednávku</button>
                 </form>
 
                 <div class="payment-modal-backdrop" id="payment-modal" aria-hidden="true">
