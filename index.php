@@ -57,22 +57,22 @@ $page->render(function (): void {
           <article class="category-card">
             <h3>Mobilné telefóny</h3>
             <p>Prémiové modely na testovanie alebo krátkodobý prenájom.</p>
-            <a class="ghost-button" href="zariadenia.php#telefony">Zobraziť ponuku</a>
+            <a class="ghost-button" href="zariadenia.php?typy[]=telefon">Zobraziť ponuku</a>
           </article>
           <article class="category-card">
             <h3>Tablety</h3>
             <p>Pre štúdium, prezentácie aj prácu na cestách.</p>
-            <a class="ghost-button" href="zariadenia.php#tablety">Zobraziť ponuku</a>
+            <a class="ghost-button" href="zariadenia.php?typy[]=tablet">Zobraziť ponuku</a>
           </article>
           <article class="category-card">
             <h3>Slúchadlá</h3>
             <p>Noise-cancelling sety na sústredenie a cestovanie.</p>
-            <a class="ghost-button" href="zariadenia.php#sluchadla">Zobraziť ponuku</a>
+            <a class="ghost-button" href="zariadenia.php?typy[]=sluchadla">Zobraziť ponuku</a>
           </article>
           <article class="category-card">
             <h3>Smart hodinky</h3>
             <p>Zdravie, notifikácie a štýl na vašom zápästí.</p>
-            <a class="ghost-button" href="zariadenia.php#hodinky">Zobraziť ponuku</a>
+            <a class="ghost-button" href="zariadenia.php?typy[]=hodinky">Zobraziť ponuku</a>
           </article>
         </div>
       </section>
