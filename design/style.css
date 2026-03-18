@@ -1024,3 +1024,154 @@ body.modal-open {
     gap: 1rem;
   }
 }
+
+.dashboard-hero {
+  align-items: center;
+}
+
+.dashboard-summary-card strong {
+  color: var(--black);
+}
+
+.dashboard-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.dashboard-stat-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f7f9fc 100%);
+  border: 1px solid #ebedf0;
+  border-radius: 20px;
+  padding: 1.4rem;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dashboard-stat-card span {
+  color: var(--gray);
+  font-size: 0.92rem;
+}
+
+.dashboard-stat-card strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.dashboard-stat-card p {
+  color: var(--gray);
+  font-size: 0.94rem;
+}
+
+.dashboard-order-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.dashboard-order-column {
+  align-content: start;
+}
+
+.dashboard-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-column-header a,
+.dashboard-column-header span {
+  color: var(--gray);
+  font-size: 0.95rem;
+}
+
+.dashboard-order-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.dashboard-order-card {
+  border: 1px solid #ececec;
+  border-radius: 18px;
+  padding: 1rem 1.1rem;
+  background: #fffef8;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.dashboard-order-card-history {
+  background: #ffffff;
+}
+
+.dashboard-order-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dashboard-order-card p {
+  color: var(--gray);
+}
+
+.dashboard-order-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  color: var(--black);
+  font-size: 0.95rem;
+}
+
+.dashboard-empty-state {
+  background: var(--light-gray);
+  border-radius: 18px;
+  padding: 1.2rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dashboard-empty-state p {
+  color: var(--gray);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.status-active {
+  background: #eaf8ef;
+  color: var(--green-dark);
+}
+
+.status-completed {
+  background: #eef2ff;
+  color: #3b5bdb;
+}
+
+.status-cancelled {
+  background: #fdecec;
+  color: #c0392b;
+}
+
+.dashboard-tools-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.dashboard-bullet-list {
+  padding-left: 1.1rem;
+  color: var(--gray);
+  display: grid;
+  gap: 0.55rem;
+}
