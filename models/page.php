@@ -126,13 +126,13 @@ class Page
             <details class="profile-menu">
               <summary class="ghost-button">Profil</summary>
               <div class="profile-dropdown" role="menu">
-                <a class="profile-dropdown-item" role="menuitem" href="kosik.php">Objednávky</a>
+                <a class="profile-dropdown-item" role="menuitem" href="user.php#orders">Objednávky</a>
                 <a
                   class="profile-dropdown-item"
                   role="menuitem"
                   href="<?= $user['role'] === 'admin' ? 'admin.php' : 'user.php' ?>"
                 >
-                  Účet zákazníka
+                  <?= $user['role'] === 'admin' ? 'Administrácia' : 'Môj dashboard' ?>
                 </a>
                 <a class="profile-dropdown-item" role="menuitem" href="logout.php">Odhlásiť</a>
               </div>

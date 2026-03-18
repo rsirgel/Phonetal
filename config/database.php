@@ -335,6 +335,49 @@ class Database
         );
     }
 
+    public function fetchUserRentals(int $userId): array
+    {
+        $rows = $this->fetchAll(
+            "SELECT id, zaciatok, koniec, celkova_cena, stav
+             FROM MA_prenajmy
+             WHERE pouzivatel_id = ?
+             ORDER BY zaciatok DESC, id DESC",
+            [$userId]
+        );
+
+        $today = new \DateTimeImmutable('today');
+
+        return array_map(static function (array $row) use ($today): array {
+            $startDate = \DateTimeImmutable::createFromFormat('Y-m-d', (string) ($row['zaciatok'] ?? '')) ?: $today;
+            $endDate = \DateTimeImmutable::createFromFormat('Y-m-d', (string) ($row['koniec'] ?? '')) ?: $today;
+            $status = (string) ($row['stav'] ?? 'aktivny');
+
+            if ($status === 'zruseny') {
+                $timelineLabel = 'Objednávka bola zrušená.';
+            } elseif ($status === 'ukonceny' || $endDate < $today) {
+                $timelineLabel = 'Prenájom je ukončený.';
+            } elseif ($startDate > $today) {
+                $timelineLabel = 'Začiatok prenájmu: ' . $startDate->format('d.m.Y');
+            } else {
+                $daysRemaining = (int) $today->diff($endDate)->format('%r%a');
+                $timelineLabel = $daysRemaining >= 0
+                    ? 'Do ukončenia ostáva ' . $daysRemaining . ' dní.'
+                    : 'Prenájom čaká na ukončenie.';
+            }
+
+            return [
+                'id' => (int) ($row['id'] ?? 0),
+                'start_date_raw' => $startDate->format('Y-m-d'),
+                'end_date_raw' => $endDate->format('Y-m-d'),
+                'date_range' => $startDate->format('d.m.Y') . ' – ' . $endDate->format('d.m.Y'),
+                'total_price_raw' => (float) ($row['celkova_cena'] ?? 0),
+                'total_price' => number_format((float) ($row['celkova_cena'] ?? 0), 2, ',', ' ') . ' €',
+                'status' => $status,
+                'timeline_label' => $timelineLabel,
+            ];
+        }, $rows);
+    }
+
     public function createDevice(array $payload): int
     {
         $sql = "INSERT INTO MA_zariadenia
