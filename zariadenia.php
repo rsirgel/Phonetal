@@ -125,8 +125,8 @@ function validateUploadedImages(?array $images): array
             continue;
         }
         $mime = $finfo->file($tmpName);
-        if (!in_array($mime, ['image/png', 'image/jpeg'], true)) {
-            $errors[] = 'Povolene su iba PNG alebo JPG fotky.';
+        if (!in_array($mime, ['image/png', 'image/webp'], true)) {
+            $errors[] = 'Povolene su iba PNG alebo WebP fotky.';
         }
         $imageCount++;
     }
