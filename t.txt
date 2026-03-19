@@ -1,5 +1,0 @@
-finish id cards design (95%done)
-Finish auditlogs v admin paneli (90%)
-UI/UX rework (25% done )   
-csrf xss etc.. (50% done)
-␊
