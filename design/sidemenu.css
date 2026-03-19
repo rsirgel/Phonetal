@@ -202,3 +202,68 @@
   }
 }
 
+
+
+.filter-category-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.filter-category-card {
+  background: var(--white);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.filter-category-card.is-open {
+  border-color: rgba(46, 125, 50, 0.25);
+  box-shadow: 0 10px 22px rgba(46, 125, 50, 0.08);
+}
+
+.filter-category-trigger {
+  width: 100%;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--black);
+  cursor: pointer;
+  text-align: left;
+}
+
+.filter-category-icon {
+  font-size: 1.1rem;
+  transition: transform 0.2s ease;
+}
+
+.filter-category-card.is-open .filter-category-icon {
+  transform: rotate(180deg);
+}
+
+.filter-category-content {
+  display: grid;
+  gap: 1rem;
+  padding: 0 1.1rem 1.1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.filter-subgroup {
+  display: grid;
+  gap: 0.55rem;
+  padding-top: 1rem;
+}
+
+.filter-subgroup h4 {
+  font-size: 0.95rem;
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: flex-start;
+}

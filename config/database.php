@@ -92,12 +92,24 @@ class Database
 
     public function fetchFilterOptions(): array
     {
+        $categories = ['telefon', 'tablet', 'hodinky', 'sluchadla', 'prislusenstvo'];
+        $filtersByCategory = [];
+
+        foreach ($categories as $category) {
+            $filtersByCategory[$category] = [
+                'znacky' => $this->fetchDistinctOptionsByType('znacka', $category),
+                'ram' => $this->fetchDistinctOptionsByType('ram', $category),
+                'uhlopriecky' => $this->fetchDistinctOptionsByType('velkost_displeja', $category),
+            ];
+        }
+
         return [
-            'typy' => $this->fetchDistinctOptions('typ_zariadenia'),
+            'typy' => $categories,
             'znacky' => $this->fetchDistinctOptions('znacka'),
             'ram' => $this->fetchDistinctOptions('ram'),
             'uhlopriecky' => $this->fetchDistinctOptions('velkost_displeja'),
             'stavy' => ['dostupne', 'nedostupne'],
+            'filters_by_category' => $filtersByCategory,
         ];
     }
 
@@ -677,6 +689,21 @@ class Database
         $rows = $this->fetchAll(
             "SELECT DISTINCT {$column} FROM MA_zariadenia WHERE {$column} IS NOT NULL ORDER BY {$column}"
         );
+        return array_values(array_filter(array_column($rows, $column)));
+    }
+
+    private function fetchDistinctOptionsByType(string $column, string $deviceType): array
+    {
+        $rows = $this->fetchAll(
+            "SELECT DISTINCT {$column}
+             FROM MA_zariadenia
+             WHERE typ_zariadenia = ?
+               AND {$column} IS NOT NULL
+               AND {$column} <> ''
+             ORDER BY {$column}",
+            [$deviceType]
+        );
+
         return array_values(array_filter(array_column($rows, $column)));
     }
 
