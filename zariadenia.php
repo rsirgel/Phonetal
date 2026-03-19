@@ -120,13 +120,13 @@ function validateUploadedImages(?array $images): array
             continue;
         }
         $tmpName = $images['tmp_name'][$index] ?? '';
-        if ($tmpName === '' || !is_file($tmpName)) {
+        if ($tmpName === '' || !is_uploaded_file($tmpName)) {
             $errors[] = 'Nepodarilo sa spracovat jednu z fotiek.';
             continue;
         }
         $mime = $finfo->file($tmpName);
-        if (!in_array($mime, ['image/png', 'image/jpeg'], true)) {
-            $errors[] = 'Povolene su iba PNG alebo JPG fotky.';
+        if (!in_array($mime, ['image/png', 'image/webp'], true)) {
+            $errors[] = 'Povolene su iba PNG alebo WebP fotky.';
         }
         $imageCount++;
     }
@@ -145,8 +145,8 @@ function saveUploadedImages(?array $images, int $deviceId): array
     }
 
     $uploadDir = __DIR__ . '/pictures';
-    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
-        throw new RuntimeException('Nepodarilo sa vytvorit priecinok pre fotografie zariadenia.');
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
     }
 
     $savedPaths = [];
@@ -158,12 +158,10 @@ function saveUploadedImages(?array $images, int $deviceId): array
         if (($images['error'][$index] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             continue;
         }
-
         $tmpName = $images['tmp_name'][$index] ?? '';
-        if ($tmpName === '' || !is_file($tmpName)) {
-            throw new RuntimeException('Docasny subor fotografie sa nepodarilo precitat.');
+        if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+            continue;
         }
-
         $mime = $finfo->file($tmpName);
         if (!in_array($mime, ['image/png', 'image/jpeg'], true)) {
             continue;
@@ -173,11 +171,9 @@ function saveUploadedImages(?array $images, int $deviceId): array
         $safeBase = preg_replace('/[^a-zA-Z0-9_-]+/', '_', pathinfo((string) $name, PATHINFO_FILENAME));
         $fileName = sprintf('device_%d_%s_%s.%s', $deviceId, $safeBase ?: 'image', bin2hex(random_bytes(4)), $extension);
         $targetPath = $uploadDir . '/' . $fileName;
-        if (!move_uploaded_file($tmpName, $targetPath)) {
-            throw new RuntimeException('Nepodarilo sa ulozit novu fotografiu zariadenia.');
+        if (move_uploaded_file($tmpName, $targetPath)) {
+            $savedPaths[] = 'pictures/' . $fileName;
         }
-
-        $savedPaths[] = 'pictures/' . $fileName;
     }
 
     return $savedPaths;
@@ -471,7 +467,6 @@ if ($deviceId && $device) {
                         'stav' => $editForm['stav'],
                     ];
 
-                    $savedPaths = [];
                     try {
                         $database = new Database();
                         $database->updateDevice((int) $deviceId, $payload);
@@ -486,13 +481,10 @@ if ($deviceId && $device) {
                         header('Location: zariadenia.php?id=' . (int) $deviceId . '&edit=success');
                         exit;
                     } catch (Throwable $exception) {
-                        if ($savedPaths !== []) {
+                        if (!empty($savedPaths ?? [])) {
                             deleteLocalImages($savedPaths);
                         }
-                        error_log('Nepodarilo sa aktualizovat zariadenie ' . (int) $deviceId . ': ' . $exception->getMessage());
-                        $editErrors[] = str_starts_with($exception->getMessage(), 'SQL chyba:')
-                            ? 'Zariadenie sa nepodarilo ulozit. Skuste to neskor.'
-                            : $exception->getMessage();
+                        $editErrors[] = 'Zariadenie sa nepodarilo ulozit. Skuste to neskor.';
                     }
                 }
             }
