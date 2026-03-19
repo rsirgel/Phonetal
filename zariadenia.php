@@ -43,6 +43,7 @@ $editForm = [
     'popis' => '',
     'stav' => 'dostupne',
 ];
+$existingDeviceImages = [];
 $deviceTypes = ['telefon', 'tablet', 'hodinky', 'sluchadla', 'prislusenstvo'];
 $deviceStatuses = ['dostupne', 'nedostupne'];
 
@@ -100,6 +101,98 @@ function buildGalleryFromPaths(array $paths, string $deviceName): array
     return $gallery;
 }
 
+
+function validateUploadedImages(?array $images): array
+{
+    $errors = [];
+    if (!$images || !is_array($images['name'] ?? null)) {
+        return $errors;
+    }
+
+    $imageCount = 0;
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    foreach ($images['name'] as $index => $name) {
+        if (($images['error'][$index] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+        if (($images['error'][$index] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $errors[] = 'Nepodarilo sa nahrat jednu z fotiek.';
+            continue;
+        }
+        $tmpName = $images['tmp_name'][$index] ?? '';
+        if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+            $errors[] = 'Nepodarilo sa spracovat jednu z fotiek.';
+            continue;
+        }
+        $mime = $finfo->file($tmpName);
+        if (!in_array($mime, ['image/png', 'image/jpeg'], true)) {
+            $errors[] = 'Povolene su iba PNG alebo JPG fotky.';
+        }
+        $imageCount++;
+    }
+
+    if ($imageCount > 4) {
+        $errors[] = 'Mozete nahrat maximalne 4 fotky.';
+    }
+
+    return array_values(array_unique($errors));
+}
+
+function saveUploadedImages(?array $images, int $deviceId): array
+{
+    if (!$images || !is_array($images['name'] ?? null)) {
+        return [];
+    }
+
+    $uploadDir = __DIR__ . '/pictures';
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+
+    $savedPaths = [];
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    foreach ($images['name'] as $index => $name) {
+        if (($images['error'][$index] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+        if (($images['error'][$index] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            continue;
+        }
+        $tmpName = $images['tmp_name'][$index] ?? '';
+        if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+            continue;
+        }
+        $mime = $finfo->file($tmpName);
+        if (!in_array($mime, ['image/png', 'image/jpeg'], true)) {
+            continue;
+        }
+
+        $extension = $mime === 'image/png' ? 'png' : 'jpg';
+        $safeBase = preg_replace('/[^a-zA-Z0-9_-]+/', '_', pathinfo((string) $name, PATHINFO_FILENAME));
+        $fileName = sprintf('device_%d_%s_%s.%s', $deviceId, $safeBase ?: 'image', bin2hex(random_bytes(4)), $extension);
+        $targetPath = $uploadDir . '/' . $fileName;
+        if (move_uploaded_file($tmpName, $targetPath)) {
+            $savedPaths[] = 'pictures/' . $fileName;
+        }
+    }
+
+    return $savedPaths;
+}
+
+function deleteLocalImages(array $paths): void
+{
+    foreach ($paths as $path) {
+        if (!is_string($path) || preg_match('#^(https?://|data:)#i', $path) === 1) {
+            continue;
+        }
+
+        $fullPath = __DIR__ . '/' . ltrim($path, '/');
+        if (is_file($fullPath)) {
+            @unlink($fullPath);
+        }
+    }
+}
+
 function buildDeviceDetail(array $device, ?array $reviews = null): array
 {
     $typeLabel = $device['type'] ?? 'zariadenie';
@@ -110,11 +203,13 @@ function buildDeviceDetail(array $device, ?array $reviews = null): array
 
     return [
         'details' => $details,
-        'summary' => sprintf(
-            'Získajte %s pripravené na okamžité použitie. Ponúkame flexibilný prenájom, ' .
-            'technickú podporu a expresné doručenie do 24 hodín.',
-            $device['name']
-        ),
+        'summary' => !empty($device['description'])
+            ? (string) $device['description']
+            : sprintf(
+                'Získajte %s pripravené na okamžité použitie. Ponúkame flexibilný prenájom, ' .
+                'technickú podporu a expresné doručenie do 24 hodín.',
+                $device['name']
+            ),
         'highlights' => [
             'Flexibilný prenájom od 7 dní.',
             'Poistenie a servis v cene prenájmu.',
@@ -340,6 +435,8 @@ if ($deviceId && $device) {
                     'popis' => trim((string) ($_POST['popis'] ?? '')),
                     'stav' => trim((string) ($_POST['stav'] ?? 'dostupne')),
                 ];
+                $uploadedImages = $_FILES['images'] ?? null;
+                $imageErrors = validateUploadedImages($uploadedImages);
 
                 if ($editForm['znacka'] === '' || $editForm['model'] === '' || $editForm['typ_zariadenia'] === '' || $editForm['cena_za_den'] === '') {
                     $editErrors[] = 'Vyplnte znacku, model, typ zariadenia a cenu za den.';
@@ -349,6 +446,9 @@ if ($deviceId && $device) {
                 }
                 if (!in_array($editForm['stav'], $deviceStatuses, true)) {
                     $editErrors[] = 'Neplatny stav zariadenia.';
+                }
+                if ($imageErrors !== []) {
+                    $editErrors = array_merge($editErrors, $imageErrors);
                 }
 
                 if ($editErrors === []) {
@@ -370,9 +470,20 @@ if ($deviceId && $device) {
                     try {
                         $database = new Database();
                         $database->updateDevice((int) $deviceId, $payload);
+
+                        $savedPaths = saveUploadedImages($uploadedImages, (int) $deviceId);
+                        if ($savedPaths !== []) {
+                            $currentImages = $database->fetchDeviceImages((int) $deviceId);
+                            $database->replaceDeviceImages((int) $deviceId, $savedPaths);
+                            deleteLocalImages($currentImages);
+                        }
+
                         header('Location: zariadenia.php?id=' . (int) $deviceId . '&edit=success');
                         exit;
                     } catch (Throwable $exception) {
+                        if (!empty($savedPaths ?? [])) {
+                            deleteLocalImages($savedPaths);
+                        }
                         $editErrors[] = 'Zariadenie sa nepodarilo ulozit. Skuste to neskor.';
                     }
                 }
@@ -395,6 +506,7 @@ if ($deviceId && $device) {
     try {
         $database = new Database();
         $deviceImages = $database->fetchDeviceImages((int) $deviceId);
+        $existingDeviceImages = $deviceImages;
         if ($deviceImages !== []) {
             $existingImages = array_values(array_filter($deviceImages, static function (string $path): bool {
                 if (preg_match('#^(https?://|data:)#i', $path) === 1) {
@@ -425,7 +537,7 @@ if ($deviceId && $device) {
     }
 }
 
-$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters, $reviewNotice, $reviewErrors, $reviewForm, $currentUser, $isAdmin, $editNotice, $editErrors, $openEditModal, $editForm, $deviceTypes, $deviceStatuses): void {
+$page->render(function () use ($device, $deviceId, $devices, $filterOptions, $selectedFilters, $reviewNotice, $reviewErrors, $reviewForm, $currentUser, $isAdmin, $editNotice, $editErrors, $openEditModal, $editForm, $deviceTypes, $deviceStatuses, $existingDeviceImages): void {
     ?>
       <?php if (!$deviceId): ?>
         <section class="section device-section">
@@ -586,7 +698,7 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
                   </ul>
                 </div>
               <?php endif; ?>
-              <form class="order-form admin-edit-form" method="post">
+              <form class="order-form admin-edit-form" method="post" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="update_device">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(Auth::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                 <div class="form-grid">
@@ -648,9 +760,23 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
                   </label>
                   <label>
                     Popis
-                    <input type="text" name="popis" value="<?= htmlspecialchars($editForm['popis'], ENT_QUOTES, 'UTF-8') ?>">
+                    <textarea name="popis" rows="4"><?= htmlspecialchars($editForm['popis'], ENT_QUOTES, 'UTF-8') ?></textarea>
+                  </label>
+                  <label>
+                    Nove fotografie
+                    <input type="file" name="images[]" accept="image/png,image/jpeg" multiple>
+                    <small>Ak nahrate nove fotky, nahradia aktualnu galeriu zariadenia. Maximalne 4 subory.</small>
                   </label>
                 </div>
+                <?php if ($existingDeviceImages !== []): ?>
+                  <div class="admin-image-preview-list">
+                    <?php foreach ($existingDeviceImages as $imagePath): ?>
+                      <figure class="admin-image-preview">
+                        <img src="<?= htmlspecialchars($imagePath, ENT_QUOTES, 'UTF-8') ?>" alt="Aktualna fotografia zariadenia">
+                      </figure>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
                 <div class="device-cta">
                   <button class="primary-button" type="submit">Ulozit zmeny</button>
                   <button class="ghost-button" type="button" data-admin-edit-close>Zrusit</button>
@@ -662,7 +788,7 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
         <section class="section device-detail-grid">
           <div class="device-detail-card">
             <h3>Popis zariadenia</h3>
-            <p><?= htmlspecialchars($device['summary'], ENT_QUOTES, 'UTF-8') ?></p>
+            <p><?= nl2br(htmlspecialchars($device['summary'], ENT_QUOTES, 'UTF-8')) ?></p>
           </div>
           <div class="device-detail-card">
             <h3>Parametre</h3>
