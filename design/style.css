@@ -434,6 +434,29 @@ main {
   margin-bottom: 0.9rem;
 }
 
+.admin-image-preview-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-image-preview {
+  margin: 0;
+  border: 1px solid #ededed;
+  border-radius: 16px;
+  padding: 0.5rem;
+  background: var(--light-gray);
+}
+
+.admin-image-preview img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
 body.modal-open {
   overflow: hidden;
 }

@@ -449,6 +449,30 @@ class Database
         $statement->close();
     }
 
+    public function deleteDeviceImages(int $deviceId): void
+    {
+        $statement = $this->conn->prepare('DELETE FROM MA_obrazky WHERE zariadenie_id = ?');
+        if ($statement === false) {
+            throw new \RuntimeException('SQL chyba: ' . $this->conn->error);
+        }
+
+        $statement->bind_param('i', $deviceId);
+        $statement->execute();
+        if ($statement->errno) {
+            $error = $statement->error;
+            $statement->close();
+            throw new \RuntimeException('SQL chyba: ' . $error);
+        }
+
+        $statement->close();
+    }
+
+    public function replaceDeviceImages(int $deviceId, array $paths): void
+    {
+        $this->deleteDeviceImages($deviceId);
+        $this->createDeviceImages($deviceId, $paths);
+    }
+
     public function fetchDeviceImages(int $deviceId): array
     {
         $rows = $this->fetchAll(
