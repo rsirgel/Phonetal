@@ -266,6 +266,57 @@ class Page
           });
         });
       }
+
+      const categoryFilterForm = document.querySelector('[data-category-filter-form]');
+      if (categoryFilterForm) {
+        const activeCategoryInput = categoryFilterForm.querySelector('[data-active-category]');
+        const categoryCards = categoryFilterForm.querySelectorAll('[data-category-card]');
+        const categoryTriggers = categoryFilterForm.querySelectorAll('[data-category-trigger]');
+
+        const setActiveCategory = (categoryValue) => {
+          if (activeCategoryInput) {
+            activeCategoryInput.value = categoryValue;
+          }
+
+          categoryCards.forEach((card) => {
+            const trigger = card.querySelector('[data-category-trigger]');
+            const content = card.querySelector('[data-category-content]');
+            const isActive = trigger && trigger.dataset.categoryValue === categoryValue;
+
+            card.classList.toggle('is-open', Boolean(isActive));
+            if (trigger) {
+              trigger.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+            }
+            if (content) {
+              content.hidden = !isActive;
+            }
+          });
+        };
+
+        categoryTriggers.forEach((trigger) => {
+          trigger.addEventListener('click', () => {
+            const categoryValue = trigger.dataset.categoryValue || '';
+            if (!categoryValue) {
+              return;
+            }
+
+            const shouldResetFilters = activeCategoryInput && activeCategoryInput.value !== categoryValue;
+            setActiveCategory(categoryValue);
+
+            if (shouldResetFilters) {
+              categoryFilterForm.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+                checkbox.checked = false;
+              });
+            }
+
+            categoryFilterForm.submit();
+          });
+        });
+
+        if (activeCategoryInput && activeCategoryInput.value) {
+          setActiveCategory(activeCategoryInput.value);
+        }
+      }
     </script>
   </body>
 </html>
