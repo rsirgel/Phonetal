@@ -163,11 +163,11 @@ function saveUploadedImages(?array $images, int $deviceId): array
             continue;
         }
         $mime = $finfo->file($tmpName);
-        if (!in_array($mime, ['image/png', 'image/jpeg'], true)) {
+        if (!in_array($mime, ['image/png', 'image/webp'], true)) {
             continue;
         }
 
-        $extension = $mime === 'image/png' ? 'png' : 'jpg';
+        $extension = $mime === 'image/png' ? 'png' : 'webp';
         $safeBase = preg_replace('/[^a-zA-Z0-9_-]+/', '_', pathinfo((string) $name, PATHINFO_FILENAME));
         $fileName = sprintf('device_%d_%s_%s.%s', $deviceId, $safeBase ?: 'image', bin2hex(random_bytes(4)), $extension);
         $targetPath = $uploadDir . '/' . $fileName;
@@ -764,7 +764,7 @@ $page->render(function () use ($device, $deviceId, $devices, $filterOptions, $se
                   </label>
                   <label>
                     Nove fotografie
-                    <input type="file" name="images[]" accept="image/png,image/jpeg" multiple>
+                    <input type="file" name="images[]" accept="image/png,image/webp" multiple>
                     <small>Ak nahrate nove fotky, nahradia aktualnu galeriu zariadenia. Maximalne 4 subory.</small>
                   </label>
                 </div>
