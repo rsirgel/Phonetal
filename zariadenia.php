@@ -337,8 +337,17 @@ if ($deviceId) {
         if (!in_array($normalizedStatus, ['dostupne', 'nedostupne'], true)) {
             $normalizedStatus = 'dostupne';
         }
+        $allowedTypes = ['telefon', 'tablet', 'hodinky', 'sluchadla', 'prislusenstvo'];
+        $requestedTypes = array_values(filter_input(INPUT_GET, 'typy', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []);
+        $selectedType = '';
+        foreach ($requestedTypes as $requestedType) {
+            if (in_array($requestedType, $allowedTypes, true)) {
+                $selectedType = $requestedType;
+                break;
+            }
+        }
         $selectedFilters = [
-            'typy' => array_values(filter_input(INPUT_GET, 'typy', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
+            'typy' => $selectedType !== '' ? [$selectedType] : [],
             'znacky' => array_values(filter_input(INPUT_GET, 'znacky', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
             'ram' => array_values(filter_input(INPUT_GET, 'ram', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
             'uhlopriecky' => array_values(filter_input(INPUT_GET, 'uhlopriecky', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?? []),
